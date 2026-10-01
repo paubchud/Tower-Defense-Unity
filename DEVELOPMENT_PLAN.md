@@ -9,6 +9,7 @@ This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md)
 - No custom gameplay or multiplayer systems have been implemented as part of this planning work.
 - The original generic wave-defense plan has been revised around classes, player-sent units, three currency roles, land, materials, and invasions.
 - Confirmed presentation/controls: 3D models, continuous hero-centered camera follow, and WASD hero movement. Start from an elevated/top-down angle and interpret right-click dragging as orbiting around the hero; camera tuning can change during development.
+- Confirmed death rule: timed respawn with a controllable ghost that can roam and buy/sell/interact with its own side, but cannot attack or collect resources.
 
 ## Target and sequence
 
@@ -20,9 +21,9 @@ Brief local experiments are useful, but do not build the entire game locally bef
 | --- | --- | --- |
 | 0. Foundation | Rules, map schema, class schema, project structure, authority model | Dependencies and first design choices recorded |
 | 1. Network smoke test | Menu, class selection, 3D arena, WASD heroes, local hero-centered cameras | Both clients agree on player state; camera orbit is independent; match resets cleanly |
-| 2. Sending and defense | Sent units, castle damage, one tower, XP upgrade, gold rewards | Complete a match with matching health/resources on both clients |
-| 3. Land and economy | Purchase land, harvest one material, pay tower costs, hero leveling | Simultaneous actions cannot duplicate rewards or overspend |
-| 4. Invasion | Cross into enemy territory, fight, steal, die/return | Both players can invade and recover under the agreed rules |
+| 2. Sending and defense | Sent units, castle damage, one tower, XP upgrade, gold rewards, hero/ghost respawn states | Match state and respawn timing agree on both clients |
+| 3. Land and economy | Purchase land, harvest one material, pay tower costs, hero leveling, ghost management permissions | Transactions cannot duplicate rewards or overspend; ghosts cannot collect |
+| 4. Invasion | Cross into enemy territory, fight, steal, return or respawn | Both players can invade and recover under the agreed ghost/respawn rules |
 | 5. Complete prototype | Full menu-to-results loop, HUD, rematch, one optional challenge | Two standalone clients complete repeated matches within measured budgets |
 | 6. Expansion | Store progression, more classes/content/maps, automation, online services | New content uses the established systems and passes balance/performance gates |
 
@@ -61,42 +62,45 @@ Gate: both players see correct class/side assignment, can move with WASD, can in
 5. Reward defender gold exactly once per eligible kill. Keep match XP and gold as separate balances.
 6. Implement one XP-funded sending-unit upgrade. Show its cost and effect in the HUD.
 7. End the match on castle destruction under the agreed damage rule and support a clean reset.
+8. Add authoritative hero death, controllable ghost movement, and timed respawn. Choose an initial timer/location/health policy before implementation. Keep the camera on the controlled hero/ghost and prevent ghost attack requests.
 
-Gate: two players send, defend, upgrade, and finish a match with identical authoritative results. Validate rejected sends, duplicate commands, simultaneous kills, and match-end command rejection.
+Gate: two players send, defend, upgrade, die/roam/respawn, and finish a match with identical authoritative results. Validate rejected sends, duplicate commands, simultaneous kills, ghost attack rejection, synchronized respawn deadlines, and match-end command rejection. The prototype must not leave a player without control during the death timer.
 
 ## Milestone 3 - Land, harvesting, and hero growth
 
-1. Decide gold-funded hero leveling, initial resource/land values, tower recipe, and node depletion/recovery rules.
+1. Decide gold-funded hero leveling, initial resource/land values, tower recipe, node depletion/recovery rules, and one sellable own-side asset/refund policy.
 2. Add predefined purchasable plots and ownership checks. Use a small number of building slots initially if the design accepts them.
 3. Add one manually harvested material. Validate proximity, node yield, action time, and inventory capacity on the server.
 4. Build the tower from Milestone 2 on owned land using materials. Validate slots, lane clearance, and the full cost before changing state.
 5. Add one gold-funded hero level/improvement using the selected progression rule. Reset it each match.
 6. Give the player clear feedback for costs, occupied plots, empty nodes, and invalid actions.
+7. Implement one own-side sale/refund transaction and allow the same purchases, sales, and management while alive or in ghost mode. Enforce normal costs, ownership, and placement rules; a refund is distinct from collecting materials.
+8. Reject ghost pickup/mining/harvesting requests, cancel in-progress harvesting on death, and ensure dying between request and completion cannot award newly collected materials. Define which passive rewards/automation outputs continue before adding those systems.
 
-Gate: two players can harvest and transact simultaneously without duplicated materials, negative balances, double-owned plots, or partial purchases. The main loop remains viable when a player loses a fight or spends poorly.
+Gate: two players can harvest and transact simultaneously without duplicated materials, negative balances, double-owned plots, or partial purchases. Ghosts can manage their own side but cannot gather. Test death during a harvest and respawn during a transaction. The main loop remains viable when a player loses a fight or spends poorly.
 
 ## Milestone 4 - Invasion
 
-1. Agree on territory access, attackable targets, theft source/type/limits, death, respawn, and return rules.
+1. Agree on territory access, attackable targets, theft source/type/limits, return rules, carried-resource handling, and any invasion-specific respawn/ghost roaming limits. Use the established timed respawn and ghost permissions.
 2. Implement hero crossing or the agreed entrance mechanic. Territory ownership, damage permissions, and action permissions must be explicit.
 3. Allow hero combat and only the target categories selected for the prototype.
 4. Implement one resource theft interaction. Remove resources from the source and credit the destination in a single authoritative operation.
-5. Add death and respawn/return. Release targets, harvesting actions, and temporary interactions when a hero dies or disconnects.
+5. Integrate invasion with the existing hero death/ghost/respawn lifecycle. Ghosts cannot attack or steal resources. Release combat targets and harvesting actions on death; preserve valid own-side management access while roaming as a ghost. Disconnect cleanup remains separate from death.
 6. Test attacking while the home lane is under pressure and recovery after a failed invasion.
 
-Gate: invading is useful but carries an opportunity cost. No resource duplication, wrong-side building, repeated death rewards, or permanent loss of player control.
+Gate: invading is useful but carries an opportunity cost. No resource duplication, ghost theft/damage, wrong-side building, repeated death rewards, or permanent loss of player control. Both clients agree when the ghost timer ends and the living hero returns.
 
 ## Milestone 5 - First complete playable prototype
 
 1. Connect Main Menu, Store placeholder, class selection, lobby, match, results, and rematch.
-2. Add a readable HUD for castle health, hero state, gold, XP, materials, and sending/building actions.
+2. Add a readable HUD for castle health, hero/ghost state, respawn countdown, gold, XP, materials, and sending/building actions.
 3. Finish essential prompts, disconnect behavior, and match reset. Select a simple prototype disconnect policy; reconnect can follow later.
 4. Optionally add one authored neutral challenge once the required economy and invasion features are stable.
 5. Measure a standalone development build under normal and stress conditions. Establish provisional caps for units, towers, effects, and resource production from the results.
 6. Test delay, packet loss where supported, simultaneous actions, repeated matches, and both host/client roles.
 7. Save a focused commit and a reproducible internal build with play/test instructions.
 
-Definition of done: two players can select Warrior/Wizard, send units, spend XP, earn/spend gold, harvest, build on bought land, invade, win/lose, and rematch on the small map. A fresh match resets all temporary growth while keeping the chosen starter loadout. Real persistent purchases are not required for this prototype.
+Definition of done: two players can select Warrior/Wizard, send units, spend XP, earn/spend gold, harvest, build on bought land, invade, die into a controllable ghost, manage their own side during a synchronized respawn timer, respawn, win/lose, and rematch on the small map. Ghosts cannot attack or collect resources. A fresh match resets all temporary growth while keeping the chosen starter loadout. Real persistent purchases are not required for this prototype.
 
 ## Milestone 6 - Expansion order
 
@@ -118,6 +122,7 @@ Definition of done: two players can select Warrior/Wizard, send units, spend XP,
 - Reward each kill, send, harvest, and match result once. Choose per-command sequence or equivalent duplicate protection where retries can repeat a transaction.
 - Keep permanent currency, match XP, gold, and materials distinct. Use integer amounts and reject invalid costs, overflows, and overspending.
 - Use a shared combat/damage layer with explicit target permissions for heroes, units, castles, towers, and future harvesters.
+- Validate action permissions against the actor's current life state as well as ownership/range. A ghost's blocked combat/collection actions must not disable its side's existing towers or remove allowed buy/sell/management access. Respawn deadlines use server time and cancel cleanly at match end.
 - Author paths, plots, nodes, castles, and challenge markers as map data. Avoid hard-coded scene-object lookups and assumptions that only the first map exists.
 - Simulation follows server time. Rendering can interpolate; gameplay costs, cooldowns, harvest durations, and deaths must not depend on client frame rate.
 - Define spawn/despawn, connection, death, and rematch cleanup in each system. Cancel outstanding actions and unregister objects during cleanup.
@@ -143,6 +148,7 @@ Definition of done: two players can select Warrior/Wizard, send units, spend XP,
 - Invalid, late, or repeated commands cannot grant resources or apply damage twice.
 - Gameplay stays usable with measured network delay and at the milestone's target load.
 - Death, disconnect, match end, and rematch release subscriptions, targets, pooled objects, and pending interactions.
+- Ghost permissions hold on both clients and the server, including requests arriving after death. Respawn cannot occur twice or after match end, and death does not accidentally erase match economy or disable management.
 - Match reset does not erase persistent unlocks or carry over temporary growth.
 - Profile the added workload, address regressions, and commit a focused, working increment.
 

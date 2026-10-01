@@ -115,11 +115,37 @@ Rules to design before the invasion milestone:
 
 - Whether heroes can freely cross the map or use an entrance, gate, teleport, or cooldown.
 - Whether heroes can damage other heroes, sent units, towers, harvesters, and castles.
-- Hero death, respawn delay/location, loss of carried resources, and retreat rules.
+- Respawn delay/location, carried-resource handling on death, ghost roaming limits, and retreat rules. Timed respawn with ghost management is confirmed below.
 - Where stolen resources come from: carried inventory, resource nodes, storage, or some combination.
 - Limits on stealing and protections against permanently trapping a player without a way to recover.
 
 Authored challenges can reward players with temporary match strength or resources. Types, placement, rewards, and whether challenges are contested remain open. Add one simple challenge after the core economy and invasion loop are stable.
+
+## Death, ghost mode, and respawn
+
+Confirmed rule: dying starts a respawn timer. During that timer, the player controls a roaming ghost and can still buy, sell, and interact with their own side. They cannot attack or pick up more resources. When the timer ends, the hero respawns.
+
+| Action while a ghost | Rule |
+| --- | --- |
+| Roam and control the camera | Allowed; exact roaming limits remain to be decided |
+| Buy, sell, and manage the player's own side | Allowed through available interactions, using normal ownership, cost, and placement checks |
+| Attack or use an ability to deal hero damage | Not allowed |
+| Pick up materials, mine, harvest, or steal resources | Not allowed |
+
+Buying and selling remain normal economic transactions. The collection restriction is not a blanket ban on balance changes: a valid sale can refund currency, and a purchase can spend existing currency/materials. Any future interaction that directly claims newly harvested materials must respect the ghost restriction.
+
+The intended penalty is temporary loss of the hero's combat presence and manual resource collection. The player can still make decisions and manage defenses, but a poorly timed death leaves their side exposed and delays gathering.
+
+Working implementation defaults, subject to balancing:
+
+- Use explicit Alive, Ghost, and Respawning states. The server controls the death transition, respawn deadline, and restoration of the living hero.
+- The hero-centered camera follows the ghost during the timer, then follows the respawned hero. Keep the player's identity, class, side, and match economy separate from the temporary hero body.
+- Existing towers and already sent units continue operating while their owner is a ghost. Treat their actions separately from the dead hero's prohibited attacks.
+- Reject new ghost attack/collection requests and cancel unfinished hero harvesting when death occurs. Repeated damage/death messages must not restart the timer or duplicate rewards.
+- Show a clear ghost appearance and a countdown, with feedback explaining unavailable actions. Enforce permissions on the server as well as in the UI.
+- End-of-match and rematch cleanup cancel pending respawn timers and ghost interactions.
+
+Still to decide: timer duration/scaling; respawn location and restored health; whether carried materials are kept, dropped, or lost; ghost visibility, collision, and vulnerability; territory/proximity limits on roaming and management; ability/projectile effects already in flight at death; and which passive rewards or automated output continue during ghost mode. Sending new units while dead is also an explicit management rule to settle.
 
 ## Match state and victory
 
@@ -138,8 +164,10 @@ The first network smoke test proves two players can connect and control their se
 - Two players, two straight lanes, two castles, and a readable HUD.
 - One sendable unit type, one XP upgrade, and kill rewards in gold.
 - One tower type, one purchasable land option, and one harvestable material.
+- One own-side selling/refund interaction, with the sellable asset and refund policy chosen before the economy milestone.
 - One basic attack per class and one gold-funded hero improvement after its leveling rule is chosen.
-- A minimal invasion with defined combat, death/return, and resource theft rules.
+- Timed hero respawn with a roaming ghost that can manage their own side but cannot attack or collect resources.
+- A minimal invasion with defined combat, return, and resource theft rules.
 - Castle destruction, results, and rematch/reset.
 
 The actual Store economy, large class roster, automation, additional maps, multiple challenge types, ranked play, and visual polish follow this prototype.
@@ -150,6 +178,7 @@ The actual Store economy, large class roster, automation, additional maps, multi
 - Kills grant gold that can buy both hero strength and land. Test whether an early lead makes every subsequent fight and economy investment easier, and choose growth limits or recovery options from playtest results.
 - Ensure the initial hero, resources, and accessible nodes allow progress. The first send, land purchase, harvest, and tower must not require a resource that can only be earned by already owning that tower or land.
 - Compare time spent defending, harvesting, sending, and invading. Each should create a useful choice, and a defeated or raided player should retain a practical path back into the match.
+- Test whether the ghost timer creates a meaningful cost through lost combat and gathering time while keeping management useful. Ghost roaming must not become a better scouting or collection strategy than staying alive.
 - Test class/loadout alternatives against multiple opponents and situations. An option that is always best violates the persistent sidegrade goal.
 
 ## Open decisions, in implementation order
@@ -158,7 +187,7 @@ The actual Store economy, large class roster, automation, additional maps, multi
 2. Networking solution, local test connection flow, host versus trusted dedicated server needs.
 3. Sending costs/cooldowns, XP award timing, unit upgrade scope, and kill reward attribution.
 4. Gold-funded hero leveling, starting land, plot placement rules, and material recipes.
-5. Invasion access, damage permissions, theft rules, death, and respawn.
+5. Invasion access, damage permissions, theft rules, respawn timer/location, carried-resource handling, and remaining ghost permissions. The timed respawn and ghost management/attack/collection rules are confirmed.
 6. Persistent reward formula, class/equipment tradeoffs, and map challenges.
 
 Choose each group before building the milestone that depends on it. Avoid implementing detailed content or permanent reward systems ahead of those decisions.
