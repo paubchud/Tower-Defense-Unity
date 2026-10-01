@@ -23,20 +23,21 @@ The Store's purchase currency is earned by playing. Real-money purchases are not
 Confirmed direction:
 
 - Use 3D models for heroes, units, towers, castles, resources, and the environment.
-- Use a top-down camera for the prototype. Camera angle, height, zoom, and projection can be tuned during playtesting. A third-person view remains a possible later experiment.
+- Keep the camera centered on the hero at all times, following them continuously like a third-person camera. Start with an elevated/top-down viewing angle for the prototype; angle, distance, and projection can be tuned during playtesting.
 - Move the hero directly with WASD.
-- Hold the right mouse button and drag to pan the camera across the map. This translates the camera's view rather than rotating around the hero.
+- Keep right-click dragging as the camera interaction. Current interpretation of this request: dragging rotates/orbits the view around the hero while keeping the hero as its focus.
 
 Working camera defaults, open to playtesting:
 
-- Start by following the local hero. Dragging enters manual panning; releasing the mouse leaves the view at its inspected position.
-- Provide a recenter/follow-hero action so the player can quickly return to their character. Its key binding is undecided.
-- Keep camera orientation stable while panning, clamp its focus within the authored map, and allow movement while inspecting another area.
-- Reserve right-click dragging for camera panning. Combat ability and interaction bindings must not conflict with it, and UI interactions must not also move the camera.
+- Hold the right mouse button and drag horizontally to orbit around the hero; vertical dragging can adjust the viewing angle within tuned limits.
+- On release, preserve the chosen viewing angle and continue following the hero. Camera focus remains on the hero during both movement and dragging.
+- Use camera-relative WASD movement as the prototype default: forward follows the view's forward direction projected onto the ground. Rotating the camera alone does not move the hero.
+- Keep the hero visible when scenery obstructs the view; the camera's distance/obstruction behavior needs testing with the 3D map.
+- Reserve right-click dragging for camera orbit. Combat ability and interaction bindings must not conflict with it, and UI interactions must not also rotate the camera.
 
-Camera behavior belongs to local presentation and should be separate from hero movement, combat, and networking. Camera panning alone does not move the hero or extend attack, harvest, or building range. It also must not expose information hidden by any later visibility rules.
+Camera behavior belongs to local presentation and should be separate from hero movement, combat, and networking. Camera rotation alone does not extend attack, harvest, or building range. It also must not expose information hidden by any later visibility rules.
 
-Keep gameplay positions, aim targets, and placement checks in world space so camera adjustments are practical. A later third-person view would still need testing and possible changes to movement/aim mapping, targeting, camera obstruction, and interaction feedback; it is not assumed to be a free swap.
+Keep gameplay positions, aim targets, and placement checks in world space so camera adjustments are practical. Moving from an elevated view to a closer behind-the-hero view may need changes to aiming, targeting, obstruction handling, and interaction feedback.
 
 ## Classes and starter loadouts
 
@@ -106,7 +107,7 @@ Automatic timed waves are not assumed to be the primary source of enemies. A tes
 
 ## Heroes, invasion, and map challenges
 
-The player directly controls their Warrior or Wizard with WASD in a 3D world viewed from above. Right-click dragging pans the camera. Aim behavior and combat/interaction bindings remain undecided. Working assumption: the hero can move into the opponent's territory under the invasion rules below.
+The player directly controls their Warrior or Wizard with WASD in a 3D world. The camera continuously follows and stays centered on the hero, initially from an elevated/top-down angle. Right-click dragging is interpreted as orbiting around that focus. Aim behavior and combat/interaction bindings remain undecided. Working assumption: the hero can move into the opponent's territory under the invasion rules below.
 
 An invasion lets a player steal resources and attack the opponent, while leaving their own side more exposed. The exact entry/return method and the types of resources that can be stolen need a decision before implementation.
 
@@ -133,7 +134,7 @@ Once the match ends, stop accepting combat and economy commands. Record the resu
 The first network smoke test proves two players can connect and control their selected classes on the same map. The first complete gameplay prototype then includes:
 
 - Main menu, Play flow, Warrior/Wizard selection, and a Store placeholder explaining future sidegrades.
-- 3D characters/environment, top-down view, WASD movement, and right-click drag camera panning.
+- 3D characters/environment, a hero-centered follow camera with an elevated initial view, WASD movement, and right-click drag camera orbit.
 - Two players, two straight lanes, two castles, and a readable HUD.
 - One sendable unit type, one XP upgrade, and kill rewards in gold.
 - One tower type, one purchasable land option, and one harvestable material.
@@ -153,7 +154,7 @@ The actual Store economy, large class roster, automation, additional maps, multi
 
 ## Open decisions, in implementation order
 
-1. Remaining controls/platform choices: aim behavior, combat/interaction/recenter bindings, camera tuning, and target platform. 3D models, top-down prototype view, WASD, and right-click drag panning are confirmed.
+1. Remaining controls/platform choices: aim behavior, combat/interaction bindings, camera angle/distance/orbit tuning, and target platform. 3D models, continuous hero-centered camera follow, and WASD are confirmed; right-click dragging is interpreted as orbiting around the hero.
 2. Networking solution, local test connection flow, host versus trusted dedicated server needs.
 3. Sending costs/cooldowns, XP award timing, unit upgrade scope, and kill reward attribution.
 4. Gold-funded hero leveling, starting land, plot placement rules, and material recipes.

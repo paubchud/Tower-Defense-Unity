@@ -8,7 +8,7 @@ This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md)
 - Repository contains the starter project with Unity-generated folders ignored.
 - No custom gameplay or multiplayer systems have been implemented as part of this planning work.
 - The original generic wave-defense plan has been revised around classes, player-sent units, three currency roles, land, materials, and invasions.
-- Confirmed presentation/controls: 3D models, a top-down prototype camera, WASD hero movement, and right-click drag camera panning. Camera tuning can change during development.
+- Confirmed presentation/controls: 3D models, continuous hero-centered camera follow, and WASD hero movement. Start from an elevated/top-down angle and interpret right-click dragging as orbiting around the hero; camera tuning can change during development.
 
 ## Target and sequence
 
@@ -19,7 +19,7 @@ Brief local experiments are useful, but do not build the entire game locally bef
 | Milestone | Build | Acceptance gate |
 | --- | --- | --- |
 | 0. Foundation | Rules, map schema, class schema, project structure, authority model | Dependencies and first design choices recorded |
-| 1. Network smoke test | Menu, class selection, 3D arena, WASD heroes, local top-down cameras | Both clients agree on player state; camera panning is independent; match resets cleanly |
+| 1. Network smoke test | Menu, class selection, 3D arena, WASD heroes, local hero-centered cameras | Both clients agree on player state; camera orbit is independent; match resets cleanly |
 | 2. Sending and defense | Sent units, castle damage, one tower, XP upgrade, gold rewards | Complete a match with matching health/resources on both clients |
 | 3. Land and economy | Purchase land, harvest one material, pay tower costs, hero leveling | Simultaneous actions cannot duplicate rewards or overspend |
 | 4. Invasion | Cross into enemy territory, fight, steal, die/return | Both players can invade and recover under the agreed rules |
@@ -28,7 +28,7 @@ Brief local experiments are useful, but do not build the entire game locally bef
 
 ## Milestone 0 - Foundation
 
-1. Use the confirmed 3D/top-down/WASD/right-drag direction. Decide aiming, other action bindings, target platform, and initial hero interaction rules; tune camera projection/angle in the prototype.
+1. Use 3D models, WASD, and continuous hero-centered camera follow. Start from an elevated angle with right-click drag orbit. Decide aiming, other action bindings, target platform, and initial hero interaction rules; tune camera projection/angle/distance in the prototype.
 2. Choose a networking solution compatible with this project and define the local test setup. Verify package documentation and compatibility at implementation time.
 3. Use server authority for gameplay. A host is a possible private prototype deployment; gameplay systems should refer to an authority interface rather than assuming a particular player is always the host.
 4. Establish folders and small assemblies for game rules, definitions, networking, presentation/UI, and tests as needed. Avoid creating speculative systems before a milestone needs them.
@@ -45,12 +45,12 @@ Gate: record these choices and open the project without errors before implementi
 3. Build an authored test arena with two straight lanes, two castles, plot markers, resource locations, and space for invasion. Movement connectivity depends on the selected invasion rules.
 4. Represent each lane as map path data with stable IDs, endpoints, and distance along the path.
 5. Connect two players and assign sides. Spawn their selected 3D heroes with WASD movement and class presentation.
-6. Add a local camera controller with top-down follow, right-click drag panning, authored map bounds, and a recenter/follow action. Use the working defaults in GAME_DESIGN.md and keep the controller separate from the hero.
+6. Add a local camera controller that continuously follows and focuses on the hero, with an elevated initial angle and right-click drag orbit. Tune viewing limits and obstruction handling. Use the working defaults in GAME_DESIGN.md and keep the controller separate from the hero.
 7. Synchronize selected class, player identity, movement, readiness, and match state.
-8. Check that dragging on UI does not pan, panning does not alter hero position or action range, and one player's camera does not affect the other player's view.
+8. Check that the hero stays centered while moving or dragging, dragging on UI does not rotate the view, rotation alone does not move the hero or alter action range, and one player's camera does not affect the other player's view. Verify camera-relative WASD and visibility around map obstacles.
 9. Test host plus client, then two standalone processes and, when available, two machines.
 
-Gate: both players see correct class/side assignment, can move with WASD, can independently pan/recenter their cameras, and can leave/restart without duplicate heroes or stale subscriptions.
+Gate: both players see correct class/side assignment, can move with WASD, can independently orbit their continuously following hero-centered cameras, and can leave/restart without duplicate heroes or stale subscriptions.
 
 ## Milestone 2 - Sending, defense, and castle victory
 
@@ -148,4 +148,4 @@ Definition of done: two players can select Warrior/Wizard, send units, spend XP,
 
 ## Next action
 
-Before implementation, settle the remaining aiming/action bindings, target platform, and first connection setup. The 3D models, top-down prototype view, WASD movement, and right-click drag panning are confirmed. Then begin Milestone 0 followed by the two-player smoke test. Decide economy and invasion details before their respective milestones.
+Before implementation, settle the remaining aiming/action bindings, target platform, and first connection setup. Use 3D models, WASD movement, and a continuously following hero-centered camera, initially elevated with right-click drag orbit. Then begin Milestone 0 followed by the two-player smoke test. Decide economy and invasion details before their respective milestones.
