@@ -10,6 +10,8 @@ This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md)
 - The original generic wave-defense plan has been revised around classes, player-sent units, three currency roles, land, materials, and invasions.
 - Confirmed presentation/controls: 3D models, continuous hero-centered camera follow, and WASD hero movement. Start from an elevated/top-down angle and interpret right-click dragging as orbiting around the hero; camera tuning can change during development.
 - Confirmed death rule: timed respawn with a controllable ghost that can roam and buy/sell/interact with its own side, but cannot attack or collect resources.
+- Future-system requirements: scrollable weapon/item hotbar, shortcuts for match management panels, configurable class energy pools, and equipment slots with class-specific starter gear. Loot/crafting/upgrading rules remain undecided.
+- Roster target: five technology groups with five classes each (25 total). Warrior and future bow-wielding Hunter are Primate; Wizard is Mystic. Classes in the same group share its tower catalog. Three group names and the remaining roster are not yet supplied.
 
 ## Target and sequence
 
@@ -19,21 +21,21 @@ Brief local experiments are useful, but do not build the entire game locally bef
 
 | Milestone | Build | Acceptance gate |
 | --- | --- | --- |
-| 0. Foundation | Rules, map schema, class schema, project structure, authority model | Dependencies and first design choices recorded |
-| 1. Network smoke test | Menu, class selection, 3D arena, WASD heroes, local hero-centered cameras | Both clients agree on player state; camera orbit is independent; match resets cleanly |
-| 2. Sending and defense | Sent units, castle damage, one tower, XP upgrade, gold rewards, hero/ghost respawn states | Match state and respawn timing agree on both clients |
-| 3. Land and economy | Purchase land, harvest one material, pay tower costs, hero leveling, ghost management permissions | Transactions cannot duplicate rewards or overspend; ghosts cannot collect |
+| 0. Foundation | Class/group/item/resource definitions, map schema, input actions, authority model | Dependencies and first design choices recorded |
+| 1. Network smoke test | Menu, two classes, 3D arena, WASD, local cameras, starter inventory/hotbar and shortcuts | Player/selection state agrees; cameras and UI input are independent |
+| 2. Sending and defense | Sent units, one tower per initial group, class attacks/energy, XP/gold, ghost respawn | Combat, energy, group tower access, and respawn agree on both clients |
+| 3. Land and economy | Buy land, harvest, build/trade, hero leveling, inventory and ghost permissions | Transactions cannot duplicate items/resources or overspend; ghosts cannot collect |
 | 4. Invasion | Cross into enemy territory, fight, steal, return or respawn | Both players can invade and recover under the agreed ghost/respawn rules |
 | 5. Complete prototype | Full menu-to-results loop, HUD, rematch, one optional challenge | Two standalone clients complete repeated matches within measured budgets |
-| 6. Expansion | Store progression, more classes/content/maps, automation, online services | New content uses the established systems and passes balance/performance gates |
+| 6. Expansion | Class unlocks, five groups/about 25 classes, gear acquisition/crafting, maps, automation, services | New content uses the established systems and passes balance/performance gates |
 
 ## Milestone 0 - Foundation
 
-1. Use 3D models, WASD, and continuous hero-centered camera follow. Start from an elevated angle with right-click drag orbit. Decide aiming, other action bindings, target platform, and initial hero interaction rules; tune camera projection/angle/distance in the prototype.
+1. Use 3D models, WASD, and continuous hero-centered camera follow. Start from an elevated angle with right-click drag orbit. Define named actions for hotbar selection, match shop, upgrades, troop-sending UI, and inventory/equipment. Decide aiming, bindings, target platform, and initial interaction rules; tune the camera in the prototype.
 2. Choose a networking solution compatible with this project and define the local test setup. Verify package documentation and compatibility at implementation time.
 3. Use server authority for gameplay. A host is a possible private prototype deployment; gameplay systems should refer to an authority interface rather than assuming a particular player is always the host.
 4. Establish folders and small assemblies for game rules, definitions, networking, presentation/UI, and tests as needed. Avoid creating speculative systems before a milestone needs them.
-5. Define minimal data for classes, loadouts, units, towers, land plots, nodes, and authored maps. Add fields only when needed.
+5. Define minimal data for classes, technology groups/tower catalogs, loadouts, energy types/pools, items/equipment slots, units, towers, plots, nodes, and maps. Establish stable IDs and references; implement only the fields and runtime behavior consumed by the first two classes and current milestone.
 6. Separate persistent loadout ownership from temporary match state from the start. Persistence itself can wait.
 7. Establish bootstrap/menu and match lifecycles, including cleanup/reset ownership.
 
@@ -42,42 +44,45 @@ Gate: record these choices and open the project without errors before implementi
 ## Milestone 1 - Menu, classes, and network smoke test
 
 1. Build Main Menu with Play, Store, and Exit. Store starts as a placeholder; define its persistent-currency role in the UI.
-2. Play opens Warrior/Wizard selection and a minimal lobby with ready state. Use default free prototype loadouts.
+2. Play opens Warrior/Wizard selection and a minimal lobby with ready state. Show their technology groups (Primate/Mystic) and support difficulty/unlock metadata. Use default free prototype loadouts; real unlock progression follows later.
 3. Build an authored test arena with two straight lanes, two castles, plot markers, resource locations, and space for invasion. Movement connectivity depends on the selected invasion rules.
 4. Represent each lane as map path data with stable IDs, endpoints, and distance along the path.
-5. Connect two players and assign sides. Spawn their selected 3D heroes with WASD movement and class presentation.
+5. Connect two players and assign sides. Spawn selected 3D heroes with WASD movement, minimal owned starter inventory, equipped-slot references, and class presentation. Choose the two starter loadouts before implementation.
 6. Add a local camera controller that continuously follows and focuses on the hero, with an elevated initial angle and right-click drag orbit. Tune viewing limits and obstruction handling. Use the working defaults in GAME_DESIGN.md and keep the controller separate from the hero.
-7. Synchronize selected class, player identity, movement, readiness, and match state.
-8. Check that the hero stays centered while moving or dragging, dragging on UI does not rotate the view, rotation alone does not move the hero or alter action range, and one player's camera does not affect the other player's view. Verify camera-relative WASD and visibility around map obstacles.
-9. Test host plus client, then two standalone processes and, when available, two machines.
+7. Add a small hotbar with mouse-wheel selection and named shortcuts for match shop, upgrades, troop-sending, and inventory/equipment panels. Panels can be placeholders until their gameplay milestone. Keep the Main Menu Store and in-match shop separate.
+8. Synchronize selected class, player identity, movement, active item selection where gameplay needs it, readiness, and match state. Derive technology group from the validated class.
+9. Check that the hero stays centered while moving or dragging, rotation alone does not move the hero or alter action range, and one player's camera does not affect the other's view. UI focus must prevent accidental orbit, attacks, hotbar selection, or sends; menu scrolling must not also cycle items. Verify camera-relative WASD and map visibility.
+10. Test host plus client, then two standalone processes and, when available, two machines.
 
-Gate: both players see correct class/side assignment, can move with WASD, can independently orbit their continuously following hero-centered cameras, and can leave/restart without duplicate heroes or stale subscriptions.
+Gate: both players see correct class/group/side assignment and starter gear, can select hotbar items and open panels, can move with WASD/orbit independent hero-centered cameras, and can leave/restart without duplicate items/heroes or stale subscriptions.
 
 ## Milestone 2 - Sending, defense, and castle victory
 
-1. Define the cost or cooldown for sending, XP award timing, kill reward owner, and unit upgrade scope.
+1. Define sending cost/cooldown, XP award timing, kill reward owner, unit upgrade scope, and the first two classes' energy/cost/recovery rules. Choose one starter tower for each initial group.
 2. Implement one sendable unit type. An accepted server command creates units on the opponent's lane and awards XP according to the selected rule.
 3. Implement authoritative path movement, health, damage, death, and arrival at a castle.
-4. Add one basic attack per hero and one tower with a simple target/fire loop. For this milestone, start each side with a preset tower; purchasing comes next.
+4. Add one basic attack per hero using the selected weapon and generic energy/cooldown rules. Add one starter tower each for Primate and Mystic using shared targeting/fire code. Start each side with its group's preset tower; purchasing comes next.
 5. Reward defender gold exactly once per eligible kill. Keep match XP and gold as separate balances.
-6. Implement one XP-funded sending-unit upgrade. Show its cost and effect in the HUD.
+6. Implement one XP-funded sending-unit upgrade. Connect the upgrade and troop-sending shortcuts to their panels; show costs/effects in the HUD.
 7. End the match on castle destruction under the agreed damage rule and support a clean reset.
 8. Add authoritative hero death, controllable ghost movement, and timed respawn. Choose an initial timer/location/health policy before implementation. Keep the camera on the controlled hero/ghost and prevent ghost attack requests.
+9. Validate item ownership, selected/equipped weapon, life state, cooldown, and all energy costs together before accepting hero actions. Test an empty pool, rapid item changes, and simultaneous energy spending; inventory selection must not bypass ghost restrictions.
 
-Gate: two players send, defend, upgrade, die/roam/respawn, and finish a match with identical authoritative results. Validate rejected sends, duplicate commands, simultaneous kills, ghost attack rejection, synchronized respawn deadlines, and match-end command rejection. The prototype must not leave a player without control during the death timer.
+Gate: two players send, defend, upgrade, use valid class equipment/energy, die/roam/respawn, and finish a match with identical authoritative results. Validate group tower access, rejected sends, duplicate commands, simultaneous kills/energy costs, ghost attack rejection, respawn deadlines, and match-end command rejection. The prototype must not leave a player without control during the death timer.
 
 ## Milestone 3 - Land, harvesting, and hero growth
 
 1. Decide gold-funded hero leveling, initial resource/land values, tower recipe, node depletion/recovery rules, and one sellable own-side asset/refund policy.
 2. Add predefined purchasable plots and ownership checks. Use a small number of building slots initially if the design accepts them.
 3. Add one manually harvested material. Validate proximity, node yield, action time, and inventory capacity on the server.
-4. Build the tower from Milestone 2 on owned land using materials. Validate slots, lane clearance, and the full cost before changing state.
+4. Build the selected class's technology-group tower from Milestone 2 on owned land using materials. Derive the build menu from the group's catalog and validate catalog eligibility, slots, lane clearance, and full cost before changing state.
 5. Add one gold-funded hero level/improvement using the selected progression rule. Reset it each match.
 6. Give the player clear feedback for costs, occupied plots, empty nodes, and invalid actions.
 7. Implement one own-side sale/refund transaction and allow the same purchases, sales, and management while alive or in ghost mode. Enforce normal costs, ownership, and placement rules; a refund is distinct from collecting materials.
 8. Reject ghost pickup/mining/harvesting requests, cancel in-progress harvesting on death, and ensure dying between request and completion cannot award newly collected materials. Define which passive rewards/automation outputs continue before adding those systems.
+9. Route inventory/material purchases, sales, and slot changes through the same authoritative ownership rules. Test occupied/incompatible slots and repeated requests without item duplication. Decide ghost equipping permissions before allowing slot changes while dead; full loot/crafting content follows the prototype.
 
-Gate: two players can harvest and transact simultaneously without duplicated materials, negative balances, double-owned plots, or partial purchases. Ghosts can manage their own side but cannot gather. Test death during a harvest and respawn during a transaction. The main loop remains viable when a player loses a fight or spends poorly.
+Gate: two players can harvest and transact simultaneously without duplicated items/materials, negative balances, double-owned plots, wrong-group towers, or partial purchases. Ghosts can manage their own side but cannot gather. Test death during a harvest and respawn during a transaction. The main loop remains viable when a player loses a fight or spends poorly.
 
 ## Milestone 4 - Invasion
 
@@ -93,32 +98,48 @@ Gate: invading is useful but carries an opportunity cost. No resource duplicatio
 ## Milestone 5 - First complete playable prototype
 
 1. Connect Main Menu, Store placeholder, class selection, lobby, match, results, and rematch.
-2. Add a readable HUD for castle health, hero/ghost state, respawn countdown, gold, XP, materials, and sending/building actions.
+2. Add a readable HUD for castle health, hero/ghost state, respawn countdown, class energy pools, hotbar/equipped items, gold, XP, materials, and sending/building actions. Finish essential panel shortcuts without input conflicts.
 3. Finish essential prompts, disconnect behavior, and match reset. Select a simple prototype disconnect policy; reconnect can follow later.
 4. Optionally add one authored neutral challenge once the required economy and invasion features are stable.
 5. Measure a standalone development build under normal and stress conditions. Establish provisional caps for units, towers, effects, and resource production from the results.
 6. Test delay, packet loss where supported, simultaneous actions, repeated matches, and both host/client roles.
 7. Save a focused commit and a reproducible internal build with play/test instructions.
 
-Definition of done: two players can select Warrior/Wizard, send units, spend XP, earn/spend gold, harvest, build on bought land, invade, die into a controllable ghost, manage their own side during a synchronized respawn timer, respawn, win/lose, and rematch on the small map. Ghosts cannot attack or collect resources. A fresh match resets all temporary growth while keeping the chosen starter loadout. Real persistent purchases are not required for this prototype.
+Definition of done: two players can select Warrior/Wizard with Primate/Mystic tower access, use starter gear through a scrollable hotbar and the chosen energy rules, open management panels by keybind, send/upgrade units, grow their economy/hero, build on bought land, invade, die into a controllable ghost, manage their own side during a synchronized timer, respawn, finish, and rematch. Ghosts cannot attack or collect resources. Fresh matches reset temporary growth, inventory/equipment acquisitions, and energy state to the selected starter setup. The complete Store/unlock system and loot/crafting content are not required for this prototype.
 
 ## Milestone 6 - Expansion order
 
-1. Add starter equipment alternatives and a small Store using a versioned local profile for private tests. Keep persistent unlocks separate from match strength; validate tradeoffs with playtests.
-2. Add more classes, abilities, sent units, unit upgrades, and towers through their shared definitions and systems. Verify balance and load at every addition.
-3. Add authored maps and challenges with the existing path/plot/node schema. Test invasion routes and resource access for fairness.
-4. Add automatic harvesting as a match investment using the existing harvest transactions. Bound output and schedule work without an update loop per node.
-5. Add room codes or matchmaking, reconnect/rematch improvements, and additional supported platforms as required.
-6. Before public persistent rewards or ranked play, add trusted match result processing, backend/profile validation, and an appropriate server deployment. A player-hosted server can manipulate its own authoritative state; client validation alone does not protect competitive rewards.
-7. Add more content, accessibility/settings, tutorials, art/audio/VFX polish, and progression tuning once the core systems have measured headroom.
+1. Add class-unlock progression, starter equipment alternatives, and a small Store using a versioned local profile for private tests. Decide currency/prerequisite/mastery requirements, show difficulty/group labels, and keep beginner classes viable against later unlocks.
+2. Add Hunter with a bow as an early extension test: new class/weapon behavior, same Primate tower catalog as Warrior. Then introduce one class from a newly named technology group to prove that adding a group/catalog does not require rewriting UI or building rules.
+3. Add one simple found-gear interaction after choosing loot ownership/death handling. Decide slot compatibility and equipment effects, then add crafting/upgrades only once acquisition rules, recipes, and ghost permissions are settled. Validate inventory, hotbar, and equipment ownership across each transition.
+4. Expand toward all five groups and approximately 25 classes, using supplied class designs. Add class-specific abilities/energies/equipment, group tower sets, sent units, and upgrades through existing definitions. Verify whole-loadout/group balance and performance in small batches.
+5. Add authored maps and challenges with the existing path/plot/node schema. Test invasion routes and resource access for fairness.
+6. Add automatic harvesting as a match investment using the existing harvest transactions. Bound output and schedule work without an update loop per node.
+7. Add room codes or matchmaking, reconnect/rematch improvements, and additional supported platforms as required.
+8. Before public persistent rewards or ranked play, add trusted match result processing, backend/profile validation, and an appropriate server deployment. A player-hosted server can manipulate its own authoritative state; client validation alone does not protect competitive rewards.
+9. Add more content, keybinding/settings UI, accessibility, tutorials, art/audio/VFX polish, and progression tuning once the core systems have measured headroom.
+
+## Future-system dependencies
+
+| System | Establish in the prototype | Expand after the core match works |
+| --- | --- | --- |
+| Hotbar and shortcuts | Owned-item references, selected slot, named/context-aware input actions | More usable items, rebinding UI, additional panels |
+| Class energies | Generic resource IDs, per-class pools/costs, authoritative validation | Additional energy types, equipment modifiers, advanced resource behaviors |
+| Equipment | Starter inventory, compatible slots, equip ownership, visual references | Found gear, crafting, upgrades after their rules are chosen |
+| Technology groups | Primate/Mystic catalog references; build-menu and server eligibility | Remaining three groups and full shared tower sets |
+| Class progression | Class IDs, complexity and unlock metadata, two free test classes | Persistent unlock requirements and the supplied roster, without escalating baseline power |
 
 ## Architecture rules that protect later work
 
 - Keep rules separate from networking, rendering, UI, and audio. The same rules should run in local tests and on the match authority.
 - Keep the camera controller and input-to-world mapping separate from hero simulation. Use 3D world positions for movement, aim, and placement; changing camera framing must not change authoritative gameplay or reveal hidden state.
 - Use data assets for reusable definitions; never store a player's changing balances, health, or cooldowns in shared definition assets.
+- Resolve towers from class -> technology group -> shared catalog. Keep class-specific equipment/abilities/energies separate; do not hard-code a 25-class limit, duplicate catalogs per class, or trust a client-submitted group/tower choice.
+- Give inventory items/instances, equipment slots, abilities, energy types, and input actions stable IDs. A hotbar or equipped slot references owned state; it must not copy/duplicate items. Recompute equipment-derived values from the equipped set so repeated equips cannot stack modifiers accidentally.
+- Use generic per-class energy pools and data-driven costs/recovery; validate all costs and cooldowns before applying an action. Keep energy distinct from XP/gold/materials and settle death/max-capacity behavior before adding energy-changing gear.
+- Route input through named actions and UI/gameplay contexts. Reserve wheel selection and right-drag orbit, prevent menu input from also triggering gameplay, and keep local UI selection separate from authoritative equip/use transactions.
 - Every networked entity and player has stable identity and explicit ownership. Validate actions by identity, range, state, and permissions on the server.
-- Route send, upgrade, harvest, build, level, and steal requests through explicit authoritative transactions. Each request either succeeds completely or leaves state unchanged.
+- Route send, upgrade, harvest, build, level, steal, item-use, equip, trade, and future craft requests through explicit authoritative transactions. Each request either succeeds completely or leaves state unchanged.
 - Reward each kill, send, harvest, and match result once. Choose per-command sequence or equivalent duplicate protection where retries can repeat a transaction.
 - Keep permanent currency, match XP, gold, and materials distinct. Use integer amounts and reject invalid costs, overflows, and overspending.
 - Use a shared combat/damage layer with explicit target permissions for heroes, units, castles, towers, and future harvesters.
@@ -126,7 +147,7 @@ Definition of done: two players can select Warrior/Wizard, send units, spend XP,
 - Author paths, plots, nodes, castles, and challenge markers as map data. Avoid hard-coded scene-object lookups and assumptions that only the first map exists.
 - Simulation follows server time. Rendering can interpolate; gameplay costs, cooldowns, harvest durations, and deaths must not depend on client frame rate.
 - Define spawn/despawn, connection, death, and rematch cleanup in each system. Cancel outstanding actions and unregister objects during cleanup.
-- Add interfaces and services when they have a concrete consumer. Do not prebuild an entire account, inventory, crafting, or matchmaking framework for the prototype.
+- Add interfaces and services when they have a concrete consumer. Implement a minimal starter inventory/slot/resource model for the prototype; defer the full loot, crafting, account, and matchmaking feature sets until their milestones.
 
 ## Performance and network guardrails
 
@@ -137,6 +158,7 @@ Definition of done: two players can select Warrior/Wizard, send units, spend XP,
 - Follow fixed lane progress for sent units; do not add per-unit navigation work unless map behavior requires it.
 - Do not build custom prediction/rollback or optimization frameworks before measurement shows a need. Choose movement replication suited to the selected controls and transport.
 - Replicate shared gameplay state at appropriate rates; create cosmetic audio and effects locally from events where practical. Use interest filtering only when the map/entity load justifies it.
+- Share catalog/definition IDs and update mutable equipment, selection, and energy state as needed. Keep private inventory details visible only to authorized players; send opponents the equipped appearance/gameplay information they need. Avoid sending full catalogs or rebuilding hotbar/equipment UI every rendered frame.
 - Cap active sends, spawn rate, projectile/effect counts, and automated resource output so neither long matches nor repeated inputs grow work without limit.
 - Schedule harvest and cooldown work from server time. Avoid allocations in repeated targeting, movement, and message handling.
 - Maintain an opt-in debug overlay with connections, latency, active counts, and economy totals; disable verbose diagnostics in release builds.
@@ -149,9 +171,10 @@ Definition of done: two players can select Warrior/Wizard, send units, spend XP,
 - Gameplay stays usable with measured network delay and at the milestone's target load.
 - Death, disconnect, match end, and rematch release subscriptions, targets, pooled objects, and pending interactions.
 - Ghost permissions hold on both clients and the server, including requests arriving after death. Respawn cannot occur twice or after match end, and death does not accidentally erase match economy or disable management.
+- Item swaps/trades cannot duplicate gear or bypass class slots, energy, cooldowns, or ghost restrictions. All members of a technology group get the same catalog; other groups cannot build its towers without an explicitly designed exception.
 - Match reset does not erase persistent unlocks or carry over temporary growth.
 - Profile the added workload, address regressions, and commit a focused, working increment.
 
 ## Next action
 
-Before implementation, settle the remaining aiming/action bindings, target platform, and first connection setup. Use 3D models, WASD movement, and a continuously following hero-centered camera, initially elevated with right-click drag orbit. Then begin Milestone 0 followed by the two-player smoke test. Decide economy and invasion details before their respective milestones.
+Before implementation, settle aiming/action/menu bindings, initial hotbar/gear/energy choices, target platform, and the first connection setup. Use 3D models, WASD movement, and a continuously following hero-centered camera, initially elevated with right-click drag orbit. Establish the class/group/item/resource references in Milestone 0, then begin the two-player smoke test. Decide detailed economy, invasion, loot/crafting, and unlock rules before their respective milestones.
