@@ -18,6 +18,26 @@ Long-term progression unlocks different ways to play. Strength gained inside a m
 
 The Store's purchase currency is earned by playing. Real-money purchases are not part of the current specification.
 
+## Presentation and controls
+
+Confirmed direction:
+
+- Use 3D models for heroes, units, towers, castles, resources, and the environment.
+- Use a top-down camera for the prototype. Camera angle, height, zoom, and projection can be tuned during playtesting. A third-person view remains a possible later experiment.
+- Move the hero directly with WASD.
+- Hold the right mouse button and drag to pan the camera across the map. This translates the camera's view rather than rotating around the hero.
+
+Working camera defaults, open to playtesting:
+
+- Start by following the local hero. Dragging enters manual panning; releasing the mouse leaves the view at its inspected position.
+- Provide a recenter/follow-hero action so the player can quickly return to their character. Its key binding is undecided.
+- Keep camera orientation stable while panning, clamp its focus within the authored map, and allow movement while inspecting another area.
+- Reserve right-click dragging for camera panning. Combat ability and interaction bindings must not conflict with it, and UI interactions must not also move the camera.
+
+Camera behavior belongs to local presentation and should be separate from hero movement, combat, and networking. Camera panning alone does not move the hero or extend attack, harvest, or building range. It also must not expose information hidden by any later visibility rules.
+
+Keep gameplay positions, aim targets, and placement checks in world space so camera adjustments are practical. A later third-person view would still need testing and possible changes to movement/aim mapping, targeting, camera obstruction, and interaction feedback; it is not assumed to be a free swap.
+
 ## Classes and starter loadouts
 
 - Initial classes: Warrior and Wizard.
@@ -86,7 +106,7 @@ Automatic timed waves are not assumed to be the primary source of enemies. A tes
 
 ## Heroes, invasion, and map challenges
 
-Working assumption: the player directly controls their Warrior or Wizard and can move into the opponent's territory. Camera, movement, aiming, and inputs are still undecided.
+The player directly controls their Warrior or Wizard with WASD in a 3D world viewed from above. Right-click dragging pans the camera. Aim behavior and combat/interaction bindings remain undecided. Working assumption: the hero can move into the opponent's territory under the invasion rules below.
 
 An invasion lets a player steal resources and attack the opponent, while leaving their own side more exposed. The exact entry/return method and the types of resources that can be stolen need a decision before implementation.
 
@@ -113,6 +133,7 @@ Once the match ends, stop accepting combat and economy commands. Record the resu
 The first network smoke test proves two players can connect and control their selected classes on the same map. The first complete gameplay prototype then includes:
 
 - Main menu, Play flow, Warrior/Wizard selection, and a Store placeholder explaining future sidegrades.
+- 3D characters/environment, top-down view, WASD movement, and right-click drag camera panning.
 - Two players, two straight lanes, two castles, and a readable HUD.
 - One sendable unit type, one XP upgrade, and kill rewards in gold.
 - One tower type, one purchasable land option, and one harvestable material.
@@ -132,7 +153,7 @@ The actual Store economy, large class roster, automation, additional maps, multi
 
 ## Open decisions, in implementation order
 
-1. View and controls: 2D or 3D presentation, camera, movement, aiming, and target platform.
+1. Remaining controls/platform choices: aim behavior, combat/interaction/recenter bindings, camera tuning, and target platform. 3D models, top-down prototype view, WASD, and right-click drag panning are confirmed.
 2. Networking solution, local test connection flow, host versus trusted dedicated server needs.
 3. Sending costs/cooldowns, XP award timing, unit upgrade scope, and kill reward attribution.
 4. Gold-funded hero leveling, starting land, plot placement rules, and material recipes.
