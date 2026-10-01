@@ -1,0 +1,6 @@
+{
+  "name": "TowerDefense.Runtime",
+  "rootNamespace": "TowerDefense",
+  "references": ["Unity.InputSystem", "Unity.Netcode.Runtime", "Unity.Collections", "Unity.ugui"],
+  "autoReferenced": true
+}

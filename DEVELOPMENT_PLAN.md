@@ -5,8 +5,8 @@ This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md)
 ## Current state
 
 - Unity project: `Tower Defense PVP`, Unity `6000.6.3f1`, Universal Render Pipeline.
-- Repository contains the starter project with Unity-generated folders ignored.
-- No custom gameplay or multiplayer systems have been implemented as part of this planning work.
+- Repository contains the Unity project with generated caches, logs, and builds ignored.
+- Foundation and the first network-smoke implementation are now present under `Assets/TowerDefense`: menu/class selection, ready lobby, two straight lanes, 3D blockout heroes, server-authoritative movement, hero-centered orbit cameras, starter hotbar, and management-panel placeholders. See README.md for play/build instructions and the implemented-versus-planned boundary.
 - The original generic wave-defense plan has been revised around classes, player-sent units, three currency roles, land, materials, and invasions.
 - Confirmed presentation/controls: 3D models, continuous hero-centered camera follow, and WASD hero movement. Start from an elevated/top-down angle and interpret right-click dragging as orbiting around the hero; camera tuning can change during development.
 - Confirmed death rule: timed respawn with a controllable ghost that can roam and buy/sell/interact with its own side, but cannot attack or collect resources.
@@ -18,6 +18,25 @@ This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md)
 Build one small 1v1 map with two straight lanes. Prove two-client networking early, then add combat, economy, harvesting, and invasion in small playable milestones.
 
 Brief local experiments are useful, but do not build the entire game locally before introducing multiplayer. Each milestone must work with two players before the next dependent milestone begins.
+
+## First implementation defaults
+
+- Target: Windows private prototype. Unity Netcode for GameObjects 2.13.3 with Unity Transport; one player hosts, another joins by address/port. MainMenu and TestArena load locally before connection; no matchmaking, relay, persistent rewards, or dedicated deployment yet.
+- Server owns hero movement and replicated class/side/ready/selected-item state. Input is sent at up to 30 Hz; cameras are local. A third connection is rejected. Losing the opponent returns the remaining player to the ready lobby.
+- Starter gear: Warrior sword/mail, Wizard staff/robes; both have a pickaxe. Three provisional hotbar slots (weapon, tool, empty), wheel wrapping, and B/U/T/I/Esc panel shortcuts. Larger inventories, acquisition, crafting, compatibility rules, and rebinding UI wait for their consumers.
+- Energy assets: Warrior stamina and Wizard mana, provisionally 100 capacity. Generic pool spending/recovery rules are independently tested, but combat costs and networked pool state are not connected yet. Equipment UI reports definitions, not a live energy HUD.
+- Two shared tower catalogs contain definition placeholders only. No functioning tower or troop is implied by those assets.
+- The map currently allows crossing between sides to check movement/connectivity; this does not settle final invasion permissions, theft, or targets. Aim/attack/harvest controls remain undecided until their milestone.
+- Windows build and automated validation output stay outside Assets in ignored `Builds`; tests live under `Assets/TowerDefense/Tests/Editor`.
+
+## Verification record - first network slice, 2026-10-01
+
+- Unity EditMode: 6 tests passed, 0 failed. Checks cover catalog references, shared group catalogs, starter-container isolation/hotbar wrapping, invalid/overspent energy costs, recovery limits, and lane/spawn bounds.
+- Windows development build completed successfully. Two standalone processes passed class/side/movement/item synchronization, hero-centered orbit, camera-relative WASD, wheel selection, all five panel shortcuts, and blocked movement/orbit/item scrolling during panels.
+- Both peers passed reset-to-lobby and re-ready, leave/menu cleanup, and a new session with swapped classes. Host disconnect cleanup passed. A third client was rejected while the accepted players continued.
+- Live menu, arena, and equipment views were rendered to PNGs and visually checked for both roles. Art is intentionally primitive 3D blockout geometry. See README's known unused-postprocessing warning.
+- Repeatable runner: `Tools/ValidatePrototype.ps1 -Capture`. Latest successful output is in ignored `Builds/Validation/Smoke-20261001-185551`; generated artifacts are not part of the source commit.
+- Not yet tested: editor plus standalone together, two physical machines, internet connections, latency/loss, high entity counts, or a complete tower-defense match. Do not infer a performance or public-network guarantee from the localhost smoke test.
 
 | Milestone | Build | Acceptance gate |
 | --- | --- | --- |
@@ -177,4 +196,4 @@ Definition of done: two players can select Warrior/Wizard with Primate/Mystic to
 
 ## Next action
 
-Before implementation, settle aiming/action/menu bindings, initial hotbar/gear/energy choices, target platform, and the first connection setup. Use 3D models, WASD movement, and a continuously following hero-centered camera, initially elevated with right-click drag orbit. Establish the class/group/item/resource references in Milestone 0, then begin the two-player smoke test. Decide detailed economy, invasion, loot/crafting, and unlock rules before their respective milestones.
+The first standalone network slice is verified. Playtest its elevated hero-centered camera with WASD and right-drag orbit, and test on two machines when available. Next choose initial aim/attack bindings, sending costs/cooldowns, XP/gold reward rules, energy costs, tower attacks, castle damage, and ghost timer/respawn defaults for Milestone 2. Decide detailed economy, invasion, loot/crafting, and unlock rules before their respective milestones.

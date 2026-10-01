@@ -1,0 +1,6 @@
+{
+  "name": "TowerDefense.Editor",
+  "rootNamespace": "TowerDefense.Editor",
+  "references": ["TowerDefense.Runtime", "Unity.Netcode.Runtime"],
+  "includePlatforms": ["Editor"]
+}

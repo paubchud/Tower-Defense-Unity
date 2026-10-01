@@ -1,6 +1,6 @@
 # Tower Defense PVP - Game Design
 
-Status: working design based on the owner's gameplay description. This document describes the intended game; DEVELOPMENT_PLAN.md specifies the order of implementation. Nothing here implies a feature is already implemented.
+Status: working design based on the owner's gameplay description. This document describes the intended game; DEVELOPMENT_PLAN.md specifies the order of implementation. Nothing here implies a feature is already implemented. README.md lists the actual first implementation and its temporary defaults separately from these intended rules.
 
 ## Core idea
 

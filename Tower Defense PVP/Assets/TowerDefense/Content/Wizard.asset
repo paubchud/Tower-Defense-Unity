@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7279b9ef8c17a9f48a38e1789271be92, type: 3}
+  m_Name: Wizard
+  m_EditorClassIdentifier: TowerDefense.Runtime::TowerDefense.Data.HeroClassDefinition
+  Id: wizard
+  DisplayName: Wizard
+  Description: 'Ranged spellcaster.
+
+    Staff, robes, and Mystic towers.'
+  Difficulty: Beginner
+  UnlockPrerequisite:
+  TechnologyGroup: {fileID: 11400000, guid: d18716622ad58bd4585dfc0f0a9e20e5, type: 2}
+  BodyColor: {r: 0.29, g: 0.29, b: 0.6, a: 1}
+  AccentColor: {r: 0.4, g: 0.75, b: 1, a: 1}
+  MovementSpeed: 6
+  MaxHealth: 100
+  StartingWeapon: {fileID: 11400000, guid: a6ddc5af6d028ba4f9dfdcb23dd1e994, type: 2}
+  StartingTool: {fileID: 11400000, guid: dd8701443394a6243994e9d06d2bf117, type: 2}
+  StartingArmor: {fileID: 11400000, guid: 22df5bb27dd2c954e86b2082d79e09a7, type: 2}
+  Energies:
+  - Definition: {fileID: 11400000, guid: d3ed03e43e0c26543b272717de493b75, type: 2}
+    Capacity: 100
+    Initial: 100
+    RecoveryPerSecond: 8

@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7279b9ef8c17a9f48a38e1789271be92, type: 3}
+  m_Name: Warrior
+  m_EditorClassIdentifier: TowerDefense.Runtime::TowerDefense.Data.HeroClassDefinition
+  Id: warrior
+  DisplayName: Warrior
+  Description: 'Close-range fighter.
+
+    Sword, armor, and Primate towers.'
+  Difficulty: Beginner
+  UnlockPrerequisite:
+  TechnologyGroup: {fileID: 11400000, guid: 1ed4864e83731524d91861067956b788, type: 2}
+  BodyColor: {r: 0.58, g: 0.32, b: 0.22, a: 1}
+  AccentColor: {r: 0.95, g: 0.67, b: 0.27, a: 1}
+  MovementSpeed: 6
+  MaxHealth: 100
+  StartingWeapon: {fileID: 11400000, guid: 1ce0f7fb2ac310e408c09e1a14723295, type: 2}
+  StartingTool: {fileID: 11400000, guid: dd8701443394a6243994e9d06d2bf117, type: 2}
+  StartingArmor: {fileID: 11400000, guid: 93fe3f2f65496f44a80dc81626944d09, type: 2}
+  Energies:
+  - Definition: {fileID: 11400000, guid: 3f128b4d7058e2e4fac182368ba9e5ae, type: 2}
+    Capacity: 100
+    Initial: 100
+    RecoveryPerSecond: 10
