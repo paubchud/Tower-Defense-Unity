@@ -27,6 +27,12 @@ namespace TowerDefense.Diagnostics
             bool client = Array.IndexOf(args, "-td-smoke-client") >= 0;
             bool reject = Array.IndexOf(args, "-td-expect-reject") >= 0;
             bool online = Array.IndexOf(args, "-td-steam") >= 0;
+            if (!host && !client && Array.IndexOf(args, "-td-steam-playtest-check") >= 0)
+            {
+                if (active) { Destroy(gameObject); yield break; }
+                active = true; DontDestroyOnLoad(gameObject);
+                yield return CheckSteamPlayableMode(args); yield break;
+            }
             if (!host && !client && Array.IndexOf(args, "-td-steam-config-test") >= 0)
             { yield return CheckSteamConfiguration(args); yield break; }
             if (!host && !client && Array.IndexOf(args, "-td-steam-private-test") >= 0)
@@ -216,6 +222,46 @@ namespace TowerDefense.Diagnostics
             string captures = Argument(args, "-td-captures");
             if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "steam-setup-required.png"));
             Debug.Log(passed ? "TD_STEAM_CONFIG_PASS app=0 no-native-init recoverable-menu retry" : "TD_STEAM_CONFIG_FAIL");
+            Application.Quit(passed ? 0 : 1);
+        }
+
+        private static IEnumerator CheckSteamPlayableMode(string[] args)
+        {
+            var session = PrototypeSession.Instance;
+            string captures = Argument(args, "-td-captures");
+            yield return null;
+            Click("PLAY"); yield return null;
+            Click("SELECT", "Warrior"); yield return null;
+            Click("ENABLE PRIVATE STEAM TEST (480)"); yield return null;
+            if (!session.SteamService.PrivatePlaytest) { Fail("Private mode menu did not activate."); yield break; }
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "private-steam-connect.png"));
+            Click("HOST STEAM");
+            double deadline = Time.realtimeSinceStartupAsDouble + 60;
+            while ((session.Connecting || session.LocalHero == null) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            if (!session.Manager.IsHost || session.LocalHero == null || session.SteamService.InitializedAppId != 480 ||
+                session.LocalAccount.Provider != "steam-test" || !SteamLobbyCode.TryNormalize(session.JoinCode, out _))
+            { session.Leave(); Fail("Private Steam playable host failed: " + session.Status); yield break; }
+            string oldCode = session.JoinCode;
+            var account = session.LocalAccount;
+            yield return new WaitForSecondsRealtime(0.3f);
+            Click("COPY ROOM CODE");
+            if (GUIUtility.systemCopyBuffer != oldCode) { Fail("Private room code did not copy."); yield break; }
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "private-steam-lobby.png"));
+            session.Leave();
+            while (!session.CanConnect && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            if (!session.CanConnect || session.LocalAccount.IsValid) { Fail("Private leave did not clean up."); yield break; }
+            yield return null;
+            Click("PLAY"); yield return null;
+            Click("SELECT", "Wizard"); yield return null;
+            Click("HOST STEAM");
+            deadline = Time.realtimeSinceStartupAsDouble + 60;
+            while ((session.Connecting || session.LocalHero == null || session.LocalHero.Definition == null) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            bool passed = session.Manager.IsHost && session.LocalHero != null && session.LocalHero.Definition != null &&
+                session.LocalHero.Definition.Id == "wizard" && !string.IsNullOrEmpty(session.JoinCode) && session.JoinCode != oldCode && session.LocalAccount.Equals(account);
+            session.Leave();
+            while (!session.CanConnect && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            passed &= session.CanConnect && !session.LocalAccount.IsValid;
+            Debug.Log(passed ? "TD_STEAM_PLAYTEST_PASS menu SDK lobby NGO-host P2P-listen code-copy leave fresh-rehost no-second-peer" : "TD_STEAM_PLAYTEST_FAIL");
             Application.Quit(passed ? 0 : 1);
         }
 

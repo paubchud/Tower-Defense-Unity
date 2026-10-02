@@ -19,6 +19,7 @@ namespace TowerDefense.Editor
             public string builtAtUtc;
             public string onlineProvider;
             public uint steamAppId;
+            public bool privateSteamPlaytestAvailable;
         }
 
         public static void ValidateVersion(string version)
@@ -49,6 +50,7 @@ namespace TowerDefense.Editor
                     string relative = file.Substring(root.Length).Replace('\\', '/');
                     // Unity explicitly marks this directory as not for distribution.
                     if (Array.Exists(relative.Split('/'), part => part.EndsWith("_BackUpThisFolder_ButDontShipItWithYourGame", StringComparison.Ordinal))) continue;
+                    if (string.Equals(Path.GetFileName(file), "steam_appid.txt", StringComparison.OrdinalIgnoreCase)) continue;
                     var entry = zip.CreateEntry(relative, System.IO.Compression.CompressionLevel.Optimal);
                     using (var input = File.OpenRead(file))
                     using (var destination = entry.Open()) input.CopyTo(destination);
@@ -57,7 +59,7 @@ namespace TowerDefense.Editor
         }
 
         public static void Publish(string repository, string directory, string version,
-            Action<string, string, string> writeShortcut = null)
+            Action<string, string, string> writeShortcut = null, bool developmentBuild = true)
         {
             ValidateVersion(version);
             string buildRoot = Path.Combine(Path.GetFullPath(repository), "Builds");
@@ -76,8 +78,24 @@ namespace TowerDefense.Editor
                 archive = Path.GetFileName(archive),
                 builtAtUtc = DateTime.UtcNow.ToString("o"),
                 onlineProvider = "Steam",
-                steamAppId = Resources.Load<SteamSettings>("SteamSettings")?.AppId ?? 0
+                steamAppId = Resources.Load<SteamSettings>("SteamSettings")?.AppId ?? 0,
+                privateSteamPlaytestAvailable = developmentBuild
             };
+            if (developmentBuild)
+            {
+                File.WriteAllText(Path.Combine(directory, "Start-Private-Steam-Test.cmd"),
+                    "@echo off\r\ncd /d \"%~dp0\"\r\nstart \"\" \"%~dp0TowerDefense.exe\" -td-steam-playtest\r\n");
+                File.WriteAllText(Path.Combine(directory, "PRIVATE-STEAM-TEST.txt"),
+                    "PRIVATE DEVELOPMENT PLAYTEST - Tower Defense v" + version + "\r\n\r\n"
+                    + "Sign into Steam. Both friends extract this whole ZIP and open Start-Private-Steam-Test.cmd.\r\n"
+                    + "Or open TowerDefense.exe, choose a class and click ENABLE PRIVATE STEAM TEST (480).\r\n"
+                    + "Host Steam, copy the numeric room code, and share it privately. Friend uses Join Steam. Both Ready.\r\n"
+                    + "Use separate Steam accounts/devices and matching builds. Keep the host game open.\r\n"
+                    + "Steam may show Spacewar: this uses Valve's shared example App ID 480, not our production identity.\r\n"
+                    + "Both players should already have this game running; an invite can launch Spacewar if it is closed.\r\n"
+                    + "This is not public distribution, guest play, a production Steam release, or a completed combat game.\r\n"
+                    + "Real two-device replication/reachability still needs testing; report host/client logs if it fails.\r\n");
+            }
             string json = JsonUtility.ToJson(info, true);
             File.WriteAllText(Path.Combine(directory, "build-info.json"), json);
 

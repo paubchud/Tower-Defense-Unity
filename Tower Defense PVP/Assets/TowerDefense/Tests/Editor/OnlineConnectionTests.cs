@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using TowerDefense.Core;
 using TowerDefense.Networking;
+using Unity.Netcode.Transports.UTP;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -38,16 +39,27 @@ namespace TowerDefense.Tests
     public sealed class OnlineConnectionTests
     {
         private PrototypeSession session;
-        private FakeSteamRooms rooms;
+        private FakeOnlineProvider rooms;
 
-        private sealed class FakeSteamRooms : ISteamRooms
+        private sealed class FakeOnlineProvider : IOnlineProvider
         {
             public int Calls;
-            public readonly TaskCompletionSource<SteamRoom> Pending = new TaskCompletionSource<SteamRoom>();
-            public Task<SteamRoom> HostAsync() { Calls++; return Pending.Task; }
-            public Task<SteamRoom> JoinAsync(string code) { Calls++; return Pending.Task; }
+            public bool GuestCodes;
+            public string DisplayName => GuestCodes ? "Guest test" : "Steam";
+            public string PendingInvite => string.Empty;
+            public bool SupportsFriendInvites => false;
+            public event Action HostLost;
+            public readonly TaskCompletionSource<OnlineConnection> Pending = new TaskCompletionSource<OnlineConnection>();
+            public Task<OnlineConnection> PrepareAsync(bool host, string code) { Calls++; return Pending.Task; }
+            public bool TryNormalizeCode(string input, out string code)
+            {
+                if (!GuestCodes) return SteamLobbyCode.TryNormalize(input, out code);
+                code = input?.Trim(); return code == "guest-room";
+            }
             public void Leave() { }
-            public bool IsMember(ulong id) => false;
+            public bool ShowInviteOverlay() => false;
+            public string DescribeFailure(Exception error) => SteamLobbyService.DescribeFailure(error);
+            public void LoseHost() => HostLost?.Invoke();
         }
 
         [UnitySetUp]
@@ -58,8 +70,8 @@ namespace TowerDefense.Tests
             yield return null;
             session = PrototypeSession.Instance;
             Assert.That(session, Is.Not.Null);
-            rooms = new FakeSteamRooms();
-            session.SteamRooms = rooms;
+            rooms = new FakeOnlineProvider();
+            session.SetOnlineProvider(rooms);
         }
 
         [UnityTearDown]
@@ -95,8 +107,8 @@ namespace TowerDefense.Tests
             Assert.That(session.CanConnect, Is.True);
             Assert.That(session.Manager.IsListening, Is.False);
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("MainMenu"));
-            rooms = new FakeSteamRooms();
-            session.SteamRooms = rooms;
+            rooms = new FakeOnlineProvider();
+            session.SetOnlineProvider(rooms);
             Task retry = session.ConnectOnlineAsync(true, "warrior");
             Assert.That(rooms.Calls, Is.EqualTo(1));
             session.Leave();
@@ -115,6 +127,38 @@ namespace TowerDefense.Tests
             Assert.That(session.CanConnect, Is.True);
             Assert.That(session.Status, Does.Contain("room code"));
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("MainMenu"));
+        }
+
+        [UnityTest]
+        public IEnumerator ProviderCannotChangeWhileConnecting()
+        {
+            var attempt = session.ConnectOnlineAsync(true, "warrior");
+            Assert.Throws<InvalidOperationException>(() => session.SetOnlineProvider(new FakeOnlineProvider()));
+            Assert.That(session.OnlineProvider, Is.SameAs(rooms));
+            session.Leave(); rooms.Pending.SetResult(default);
+            while (!attempt.IsCompleted || !session.CanConnect) yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator NonSteamProviderSuppliesItsOwnIdentityCodeAndTransport()
+        {
+            rooms.GuestCodes = true;
+            var localTransport = session.GetComponent<UnityTransport>();
+            localTransport.SetConnectionData("127.0.0.1", 7788, "127.0.0.1");
+            rooms.Pending.SetResult(new OnlineConnection("guest-room", localTransport, new AccountIdentity("guest", "fixture-local-profile")));
+            var attempt = session.ConnectOnlineAsync(true, "wizard");
+            double deadline = Time.realtimeSinceStartupAsDouble + 8;
+            while ((!attempt.IsCompleted || session.LocalHero == null) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            Assert.That(attempt.IsCompletedSuccessfully, Is.True);
+            Assert.That(session.Manager.IsHost, Is.True);
+            Assert.That(session.JoinCode, Is.EqualTo("guest-room"));
+            Assert.That(session.LocalAccount.ProfileKey, Is.EqualTo("guest:fixture-local-profile"));
+            Assert.That(session.Manager.NetworkConfig.NetworkTransport, Is.SameAs(localTransport));
+            Assert.That(session.SteamService.InitializedAppId, Is.Zero, "An alternate provider must not require Steam.");
+            session.Leave();
+            while (!session.CanConnect && Time.realtimeSinceStartupAsDouble < deadline + 5) yield return null;
+            Assert.That(session.LocalAccount.IsValid, Is.False);
+            Assert.That(session.CanConnect, Is.True);
         }
     }
 }

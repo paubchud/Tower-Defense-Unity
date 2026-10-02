@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Steamworks;
+using TowerDefense.Core;
 using UnityEngine;
 
 namespace TowerDefense.Networking
@@ -11,14 +12,6 @@ namespace TowerDefense.Networking
         public readonly string JoinCode;
         public readonly ulong HostSteamId;
         public SteamRoom(string code, ulong host) { JoinCode = code; HostSteamId = host; }
-    }
-
-    public interface ISteamRooms
-    {
-        Task<SteamRoom> HostAsync();
-        Task<SteamRoom> JoinAsync(string code);
-        void Leave();
-        bool IsMember(ulong steamId);
     }
 
     public sealed class SteamOnlineException : Exception
@@ -40,7 +33,7 @@ namespace TowerDefense.Networking
         }
     }
 
-    public sealed class SteamLobbyService : MonoBehaviour, ISteamRooms
+    public sealed class SteamLobbyService : MonoBehaviour
     {
         public string PendingInvite { get; private set; } = string.Empty;
         public event Action HostLost;
@@ -53,14 +46,19 @@ namespace TowerDefense.Networking
         private bool initialized;
         private float nextOwnerCheck;
         public uint InitializedAppId { get; private set; }
+        public bool PrivatePlaytest { get; private set; }
+        public bool PrivatePlaytestAvailable => Application.isEditor || Debug.isDebugBuild;
+        public AccountIdentity Account => initialized
+            ? new AccountIdentity(InitializedAppId == 480 ? "steam-test" : "steam", SteamUser.GetSteamID().m_SteamID.ToString()) : default;
 
         private void Awake()
         {
             var args = Environment.GetCommandLineArgs();
             int launchInvite = Array.IndexOf(args, "+connect_lobby");
             if (launchInvite >= 0 && launchInvite + 1 < args.Length && SteamLobbyCode.TryNormalize(args[launchInvite + 1], out var code)) PendingInvite = code;
+            if (Array.IndexOf(args, "-td-steam-playtest") >= 0 && PrivatePlaytestAvailable) EnablePrivatePlaytest();
             var settings = Resources.Load<SteamSettings>("SteamSettings");
-            if (!Application.isEditor && !Application.isBatchMode && settings != null && settings.AppId != 0)
+            if (!Application.isEditor && !Application.isBatchMode && (PrivatePlaytest || (settings != null && settings.AppId != 0)))
             {
                 try { InitializeSteam(); }
                 catch (Exception error) { Debug.LogWarning("TD_STEAM_STARTUP_FAILED type=" + error.GetType().Name); }
@@ -71,11 +69,8 @@ namespace TowerDefense.Networking
         {
             if (initialized) return;
             var settings = Resources.Load<SteamSettings>("SteamSettings");
-            uint appId = settings != null ? settings.AppId : 0;
-            bool privateTest = (Application.isEditor || Debug.isDebugBuild) && Array.IndexOf(Environment.GetCommandLineArgs(), "-td-steam-private-test") >= 0;
-            if (privateTest) appId = 480; // Valve's example identity is never selected for normal play or a release.
-            if (appId == 0) throw new SteamOnlineException("Steam is not configured yet. Set this game's App ID in the SteamSettings asset. LAN testing still works.");
-            if (appId == 480 && !privateTest) throw new SteamOnlineException("App ID 480 is reserved for explicit private SDK tests. Configure your game's own Steamworks App ID.");
+            bool diagnostic = PrivatePlaytestAvailable && Array.IndexOf(Environment.GetCommandLineArgs(), "-td-steam-private-test") >= 0;
+            uint appId = SteamLaunchPolicy.ResolveAppId(settings != null ? settings.AppId : 0, PrivatePlaytestAvailable, PrivatePlaytest || diagnostic);
             Environment.SetEnvironmentVariable("SteamAppId", appId.ToString(), EnvironmentVariableTarget.Process);
             if (!SteamAPI.Init()) throw new SteamOnlineException("Could not initialize Steam. Open Steam, sign in, and check access to the game's App ID.");
             initialized = true;
@@ -86,6 +81,13 @@ namespace TowerDefense.Networking
                 throw new SteamOnlineException("Steam must be signed in using the configured game App ID.");
             }
             inviteCallback = Callback<GameLobbyJoinRequested_t>.Create(invite => PendingInvite = invite.m_steamIDLobby.m_SteamID.ToString());
+        }
+
+        public void EnablePrivatePlaytest()
+        {
+            if (!PrivatePlaytestAvailable) throw new SteamOnlineException("Private Steam testing is available only in development builds.");
+            if (initialized && InitializedAppId != 480) throw new SteamOnlineException("Restart with -td-steam-playtest to change Steam identity. An active SDK identity cannot be swapped.");
+            PrivatePlaytest = true;
         }
 
         private void Update()

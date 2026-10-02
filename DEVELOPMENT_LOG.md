@@ -9,8 +9,42 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 - **Step 1 / version 0.1:** released on GitHub as fixed tag `v0.1`, source checkpoint `881ee16`. [Download/release](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1). Its Windows ZIP passed size/SHA256 verification and standalone regression.
 - **Local launcher:** the existing `TowerDefense.exe.lnk` is now updated automatically by the versioned build command, after successful packaging. Older builds are retained.
 - **GitHub recovery:** each published version will have a fixed `v<version>` tag and retained downloadable ZIP. Work stays on separate update branches; commits do not erase earlier snapshots.
-- **Current networking work:** Steam-only 0.1.1 preview on `codex/steam-integration`. SDK/lobby/P2P integration is implemented. All 36 automated tests, final Windows packaging, LAN regression, private native SDK/lobby check, and unset-App-ID menu/retry check passed. Own-game App ID and real two-account/device multiplayer verification remain pending. EOS is canceled; released 0.1 still uses Unity Relay.
+- **Current networking work:** private Steam 0.1.2 on `codex/private-steam-playtest`, with explicit playable App ID 480 development mode and guest-ready provider/identity boundaries. All 47 automated tests, Windows packaging/launcher, native private host/leave/rehost and LAN checks passed. Real two-account/device Steam P2P verification is pending. A real App ID is a later production-distribution requirement, not a blocker for private tests. Released 0.1 still uses Unity Relay.
+- **Guest play:** future requirement restored. Provider/identity separation is implemented; guest internet/login/persistent saves are not. No backend/billing is enabled; EOS remains canceled. See [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md).
 - **Next gameplay release:** 0.2, Step 2's combat and troop sending, after the Steam networking increment is verified, merged, and pushed.
+
+## 2026-10-01 - Private Steam playtest 0.1.2 and guest preparation
+
+Status: implemented and locally verified; private ZIP ready for a friend test. Not a production Steam release or verified two-user internet match.
+Branch: `codex/private-steam-playtest`, based on the pushed 0.1.1 checkpoint; main and published tags/downloads remain unchanged.
+
+### Added
+
+- Explicit development-only private Steam mode using Valve's sample App ID 480, enabled from the connection menu or `-td-steam-playtest`. Normal play still does not silently select the sample app.
+- Playable private launcher/readme in development ZIPs; it keeps the normal menu/host/join game open, unlike the SDK-only diagnostic that exits. The same repository shortcut remains tied to the latest completed versioned build.
+- Private-test menu/lobby labels, room-code fallback and accepted-invite updates to an open connection page. Invite controls are hidden for LAN/unsupported providers.
+- Provider-neutral connection preparation/transport/code validation/error/cleanup boundary, with the current Steam adapter and provider switching restricted outside a connection.
+- Namespaced account identity separate from per-match Netcode IDs. Production Steam, Steam-test and future guest profile keys cannot alias; local connection identity clears on failure/leave. No save/profile/backend is implemented by this type.
+- Explicit ZIP exclusion of `steam_appid.txt`, in addition to Unity's do-not-ship backup exclusion. Public Steam publication guards for App ID 0/480 remain unchanged.
+- Guest implementation sequencing, stable local GUID/profile migrations/recovery, optional linking/conflict checks, independent guest transport and separate player pools in [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md). No cross-play requirement, paid service or EOS integration was added.
+- Updated setup/plan/repository instructions: private SDK testing does not require registering the game, while production distribution does; guest preparation must not force Steam into future match rules.
+
+### Verified so far
+
+- 47/47 automated tests passed (`Builds/Validation/private-steam-tests.xml`), including private/production launch policy, account namespace validation, provider switching restrictions, a non-Steam identity/code/LAN transport host without Steam initialization, existing foundation/lifecycle/packet checks and launcher/archive safeguards.
+- Tests use fake providers/local networking, not a second Steam account or guest internet backend.
+- Final source recheck: 47/47 passed, 0 failed/skipped (`Builds/Validation/private-steam-tests-final.xml`).
+- Actual 0.1.2 Windows build/package succeeded. ZIP contains the game, Steam native runtime, `Start-Private-Steam-Test.cmd`, private test readme and manifest; explicit `steam_appid.txt`/Unity backup exclusions passed. The shortcut targets this executable with its build directory as working directory.
+- ZIP SHA256: `22ebbfc0ebfcfbab353c9317bd20a6a3197e7bc67368e85fd3cfd221787e7939`. This private development ZIP is not a public release asset.
+- Real private-menu check passed on this developer account: App ID 480 activation, native SDK/lobby/P2P listen, NGO playable host, copied room code, leave, fresh rehost as Wizard and cleanup (`Builds/Validation/Private-Steam-0.1.2/playable-host.log`). It sent no invitations/messages and used no second peer.
+- Ordinary-mode unset-App-ID/retry check also passed without native initialization (`unset-config.log` in that folder). Production publication dry run rejected the private/unconfigured preview before authentication/upload.
+- Standalone LAN host/client/third checks all passed: controls/replication, third-player rejection, reset, disconnect and swapped-class rejoin (`Builds/Validation/Smoke-20261001-230106`). Private connection/lobby captures were visually checked.
+
+### Remaining
+
+- Real Steam two-account/device replication, invites and separate-home reachability still need a friend test. Do not merge or advertise them verified based on a one-account host check.
+- No guest internet/login/save functionality, production App ID/entitlements/depot upload, Cloud/progression, matchmaking queue, trusted rewards or host migration.
+- Private App ID 480 ZIPs are shared privately, not published as production game releases. After peer verification, the authorized networking merge comes before gameplay 0.2.
 
 ## 2026-10-01 - Steam integration preview 0.1.1
 

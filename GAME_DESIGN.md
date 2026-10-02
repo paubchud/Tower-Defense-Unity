@@ -20,9 +20,9 @@ The Store's purchase currency is earned by playing. Real-money purchases are not
 
 ## Publishing, guest identity, and saved progress
 
-- The latest owner decision is Steam-only compatibility/multiplayer. The previous EOS/itch-guest direction is canceled; Steam accounts may be required for online play.
-- Multiplayer should not require router port forwarding or metered third-party service-usage charges. Target identity/rooms/transport: Steamworks account identity, lobbies/invites, and P2P relay, separate from gameplay authority. The 0.1.1 branch implements a Steam preview awaiting the game's App ID and two-account/device verification; the published 0.1 prototype still uses Unity Relay.
-- Key later saved progress by stable Steam identity; define save schema/migrations/recovery and optional Steam Cloud synchronization before permanent unlocks. Multiplayer does not automatically implement saved progression.
+- The latest owner decision is private Steam development playtesting now, with guest play accommodated later. Steam accounts are required for the current internet mode, but future guests must not require Steam. EOS remains canceled; no guest backend is selected and Steam/guest cross-play is not required.
+- Multiplayer should not require router port forwarding or metered third-party service-usage charges. Current private testing uses Steamworks identity/lobbies/P2P and explicit development App ID 480, separate from gameplay authority. The 0.1.2 private build is locally verified but still needs two-account/device replication checks. A real App ID is needed later for production distribution. Guest identity/networking will use an independent provider; public service limits/costs need a separate decision. The published 0.1 prototype still uses Unity Relay.
+- Key later saved progress by provider-namespaced identity (Steam, private test or guest); keep account/profile IDs separate from per-match Netcode IDs. Define save schema/migrations/recovery and optional Steam Cloud or guest account linking before permanent unlocks. Multiplayer does not automatically implement saved progression. See GUEST_PLAY_PLAN.md.
 - Keep private credentials server-side. Player-hosted matches are suitable for private prototype tests, not trusted competitive rewards; persistence/security and storefront costs need their own plan.
 - Name tested builds by update version: `0.1` completes Step 1. Maintain the same local shortcut and a latest GitHub Release download, while retaining previous versions for rollback.
 

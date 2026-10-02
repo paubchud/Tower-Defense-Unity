@@ -24,6 +24,9 @@ namespace TowerDefense.UI
         private RectTransform lobby;
         private Text roomLabel;
         private Button copyCode;
+        private Button inviteFriend;
+        private InputField roomCodeField;
+        private string observedInvite;
         private bool connectionPage;
         private string observedStatus;
         private readonly List<Selectable> connectionWidgets = new List<Selectable>();
@@ -102,12 +105,14 @@ namespace TowerDefense.UI
         {
             if (page != null) { page.gameObject.SetActive(false); Destroy(page.gameObject); }
             connectionPage = false;
+            roomCodeField = null;
             connectionWidgets.Clear();
             page = Box("Menu page", canvasRoot, Vector2.zero, Vector2.zero, Vector2.one * 0.5f, Ink);
             page.anchorMin = Vector2.zero; page.anchorMax = Vector2.one; page.sizeDelta = Vector2.zero;
             Label(page, "TOWER DEFENSE", new Vector2(0, 270), new Vector2(900, 105), 64, Color.white);
             Label(page, "TWO CASTLES. ONE VICTOR.", new Vector2(0, 195), new Vector2(900, 45), 21, Gold);
-            Label(page, "Private 1v1 prototype / v" + Application.version, new Vector2(0, -370), new Vector2(800, 30), 16, Muted);
+            Label(page, (session.OnlineProvider is SteamOnlineProvider && session.SteamService.PrivatePlaytest ? "PRIVATE STEAM TEST / Spacewar 480 / v" : "Private 1v1 prototype / v") + Application.version,
+                new Vector2(0, -370), new Vector2(900, 30), 16, Muted);
         }
 
         private void BuildMainMenu()
@@ -163,27 +168,43 @@ namespace TowerDefense.UI
             Label(page, definition.DisplayName + " / " + definition.TechnologyGroup.DisplayName,
                 new Vector2(0, 100), new Vector2(780, 45), 28, definition.AccentColor);
             Label(page, "ROOM CODE", new Vector2(0, 50), new Vector2(700, 35), 17, Muted);
-            var code = Field(page, session.SteamService.PendingInvite, new Vector2(0, 5), new Vector2(480, 48));
-            code.characterLimit = 20;
+            var provider = session.OnlineProvider;
+            var code = Field(page, provider.PendingInvite, new Vector2(0, 5), new Vector2(480, 48));
+            roomCodeField = code;
+            observedInvite = provider.PendingInvite;
+            code.characterLimit = 128; // Each provider validates its own code format before any service call.
             var placeholder = Label(code.transform, "Code from your friend", Vector2.zero, new Vector2(336, 44), 20, Muted, TextAnchor.MiddleLeft);
             code.placeholder = placeholder;
-            Label(page, "Steam required. Host, invite a Steam friend, or paste their numeric room code.", new Vector2(0, -40), new Vector2(900, 35), 17, Muted);
+            Label(page, provider.DisplayName + " connection. Host or paste the room code from your friend.", new Vector2(0, -40), new Vector2(900, 35), 17, Muted);
             connectionWidgets.Add(code);
-            connectionWidgets.Add(ActionButton(page, "HOST STEAM", new Vector2(-155, -100), new Vector2(270, 58), () =>
+            connectionWidgets.Add(ActionButton(page, "HOST " + provider.DisplayName.ToUpperInvariant(), new Vector2(-155, -100), new Vector2(270, 58), () =>
             {
                 _ = session.ConnectOnlineAsync(true, selectedClass);
                 status.text = session.Status;
             }, true));
-            connectionWidgets.Add(ActionButton(page, "JOIN STEAM", new Vector2(155, -100), new Vector2(270, 58), () =>
+            connectionWidgets.Add(ActionButton(page, "JOIN " + provider.DisplayName.ToUpperInvariant(), new Vector2(155, -100), new Vector2(270, 58), () =>
             {
                 _ = session.ConnectOnlineAsync(false, selectedClass, code.text);
                 status.text = session.Status;
             }));
-            status = Label(page, "Steam account + lobby/P2P networking. Both players use the same build and separate Steam accounts/devices.",
+            status = Label(page, provider is SteamOnlineProvider && session.SteamService.PrivatePlaytest
+                ? "PRIVATE DEVELOPMENT TEST / App ID 480. Both players enable this mode, use the same build and separate Steam accounts/devices. Share a numeric code with your friend."
+                : provider.DisplayName + " account + room networking. Use the same build. Guest internet play is planned, not available yet.",
                 new Vector2(0, -185), new Vector2(850, 90), 17, Muted);
             observedStatus = session.Status;
             connectionWidgets.Add(ActionButton(page, "LAN / THIS PC", new Vector2(150, -275), new Vector2(270, 48), () => BuildLanConnection(classId)));
             ActionButton(page, "BACK / CANCEL", new Vector2(-150, -275), new Vector2(270, 48), BackFromConnection);
+            if (provider is SteamOnlineProvider && session.SteamService.PrivatePlaytestAvailable)
+            {
+                var privateButton = ActionButton(page, session.SteamService.PrivatePlaytest ? "PRIVATE STEAM TEST ENABLED (480)" : "ENABLE PRIVATE STEAM TEST (480)",
+                    new Vector2(0, -325), new Vector2(520, 40), () =>
+                    {
+                        if (session.EnablePrivateSteamPlaytest()) BuildConnection(classId);
+                        else status.text = session.Status;
+                    });
+                privateButton.interactable = !session.SteamService.PrivatePlaytest && session.CanConnect;
+                if (!session.SteamService.PrivatePlaytest) connectionWidgets.Add(privateButton);
+            }
         }
 
         private void BackFromConnection()
@@ -239,7 +260,8 @@ namespace TowerDefense.UI
             Label(help, "WASD move  |  Right-drag orbit  |  Wheel hotbar  |  B shop  U upgrades  T troops  I equipment  |  Esc pause",
                 Vector2.zero, new Vector2(1360, 30), 16, Color.white);
             lobby = Box("Ready lobby", canvasRoot, Vector2.zero, new Vector2(590, 375), Vector2.one * 0.5f, Panel);
-            Label(lobby, "YOUR ARENA", new Vector2(0, 145), new Vector2(540, 45), 30, Gold);
+            Label(lobby, session.OnlineProvider is SteamOnlineProvider && session.SteamService.PrivatePlaytest ? "PRIVATE STEAM TEST / 480" : "YOUR ARENA",
+                new Vector2(0, 145), new Vector2(540, 45), 30, Gold);
             roomLabel = Label(lobby, string.Empty, new Vector2(0, 100), new Vector2(540, 40), 24, Gold);
             roster = Label(lobby, "Waiting for players...", new Vector2(0, 30), new Vector2(530, 90), 20, Color.white);
             ready = ActionButton(lobby, "READY", new Vector2(0, -68), new Vector2(280, 48), () =>
@@ -249,7 +271,7 @@ namespace TowerDefense.UI
             }, true);
             readyLabel = ready.GetComponentInChildren<Text>();
             copyCode = ActionButton(lobby, "COPY ROOM CODE", new Vector2(-135, -120), new Vector2(255, 38), CopyRoomCode);
-            ActionButton(lobby, "INVITE STEAM FRIEND", new Vector2(135, -120), new Vector2(255, 38), session.InviteSteamFriend);
+            inviteFriend = ActionButton(lobby, "INVITE FRIEND", new Vector2(135, -120), new Vector2(255, 38), session.InviteFriend);
             status = Label(lobby, string.Empty, new Vector2(0, -165), new Vector2(550, 40), 15, Muted);
         }
 
@@ -310,6 +332,9 @@ namespace TowerDefense.UI
             {
                 if (!connectionPage) return;
                 foreach (var widget in connectionWidgets) widget.interactable = session.CanConnect;
+                string incoming = session.OnlineProvider.PendingInvite;
+                if (roomCodeField != null && session.CanConnect && !string.IsNullOrEmpty(incoming) && incoming != observedInvite)
+                { roomCodeField.text = incoming; observedInvite = incoming; } // Accepted invite, never an automatic class/match switch.
                 if (session.Status != observedStatus) { observedStatus = session.Status; status.text = session.Status; }
                 return;
             }
@@ -321,6 +346,7 @@ namespace TowerDefense.UI
             status.text = session.Status;
             roomLabel.text = session.Online ? (string.IsNullOrEmpty(session.JoinCode) ? "Connecting online..." : "ROOM CODE: " + session.JoinCode) : "LOCAL NETWORK MATCH";
             copyCode.gameObject.SetActive(session.Online && session.Manager.IsHost && !string.IsNullOrEmpty(session.JoinCode));
+            inviteFriend.gameObject.SetActive(session.Online && session.Manager.IsHost && session.OnlineProvider.SupportsFriendInvites);
             session.Controls.BlockGameplay = modal != null || !running;
             var players = new StringBuilder();
             foreach (var player in session.Heroes)

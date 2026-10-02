@@ -32,7 +32,8 @@ namespace TowerDefense.Networking
         public string JoinCode { get; private set; } = string.Empty;
         public int? ServiceErrorCode { get; private set; }
         public bool CanConnect => !Connecting && !stopping && Manager != null && !Manager.IsListening && !Manager.ShutdownInProgress;
-        public ISteamRooms SteamRooms { get; set; }
+        public IOnlineProvider OnlineProvider { get; private set; }
+        public AccountIdentity LocalAccount { get; private set; }
         public SteamLobbyService SteamService { get; private set; }
         public NetworkHero LocalHero => Heroes.Find(hero => hero != null && hero.IsOwner);
         private UnityTransport transport;
@@ -55,11 +56,11 @@ namespace TowerDefense.Networking
             DontDestroyOnLoad(gameObject);
             Controls = gameObject.AddComponent<PrototypeInput>();
             SteamService = gameObject.AddComponent<SteamLobbyService>();
-            SteamRooms = SteamService;
-            SteamService.HostLost += SteamHostLost;
             transport = gameObject.AddComponent<UnityTransport>();
             steamTransport = gameObject.AddComponent<SteamP2PTransport>();
-            steamTransport.IsRoomMember = id => SteamRooms.IsMember(id);
+            steamTransport.IsRoomMember = SteamService.IsMember;
+            OnlineProvider = new SteamOnlineProvider(SteamService, steamTransport);
+            OnlineProvider.HostLost += OnlineHostLost;
             Manager = gameObject.AddComponent<NetworkManager>();
             Manager.NetworkConfig = new NetworkConfig
             {
@@ -71,6 +72,23 @@ namespace TowerDefense.Networking
             Manager.ConnectionApprovalCallback = Approve;
             Manager.OnClientConnectedCallback += Connected;
             Manager.OnClientDisconnectCallback += Disconnected;
+        }
+
+        public void SetOnlineProvider(IOnlineProvider provider)
+        {
+            if (provider == null) throw new ArgumentNullException(nameof(provider));
+            if (!CanConnect) throw new InvalidOperationException("Leave the current connection before changing provider.");
+            OnlineProvider.HostLost -= OnlineHostLost;
+            OnlineProvider = provider;
+            OnlineProvider.HostLost += OnlineHostLost;
+            LocalAccount = default;
+        }
+
+        public bool EnablePrivateSteamPlaytest()
+        {
+            if (!CanConnect || !(OnlineProvider is SteamOnlineProvider)) return false;
+            try { SteamService.EnablePrivatePlaytest(); Status = "Private Steam test enabled (Spacewar App ID 480). Both players must enable this mode; use matching builds and separate Steam accounts."; return true; }
+            catch (SteamOnlineException error) { Status = error.Message; return false; }
         }
 
         public void Connect(bool host, string classId, string address, ushort port)
@@ -92,6 +110,7 @@ namespace TowerDefense.Networking
             Online = online;
             JoinCode = string.Empty;
             ServiceErrorCode = null;
+            LocalAccount = default;
             approved.Clear(); sides.Clear(); Heroes.Clear();
             Controls.BlockGameplay = false;
             Manager.NetworkConfig.ConnectionData = Encoding.UTF8.GetBytes("td-game-" + Application.version + "|" + classId);
@@ -112,16 +131,17 @@ namespace TowerDefense.Networking
         public async Task ConnectOnlineAsync(bool host, string classId, string code = "")
         {
             if (!CanConnect) return;
-            if (!host && !SteamLobbyCode.TryNormalize(code, out code))
-            { Status = "Enter the numeric Steam room code from your host."; return; }
+            if (!host && !OnlineProvider.TryNormalizeCode(code, out code))
+            { Status = "Enter a valid " + OnlineProvider.DisplayName + " room code from your host."; return; }
             if (!BeginConnection(classId, true)) return;
             int attempt = connectionAttempt;
             var cancellation = new CancellationTokenSource();
+            var provider = OnlineProvider;
             preparationCancellation = cancellation;
             Status = host ? "Creating your online room..." : "Looking up the online room...";
             try
             {
-                Task<SteamRoom> request = host ? SteamRooms.HostAsync() : SteamRooms.JoinAsync(code);
+                Task<OnlineConnection> request = provider.PrepareAsync(host, code);
                 Task timeout = Task.Delay(TimeSpan.FromSeconds(45), cancellation.Token);
                 if (await Task.WhenAny(request, timeout) != request)
                 {
@@ -132,8 +152,9 @@ namespace TowerDefense.Networking
                 }
                 var connection = await request;
                 if (!IsCurrent(attempt)) return;
-                steamTransport.HostSteamId = connection.HostSteamId;
-                Manager.NetworkConfig.NetworkTransport = steamTransport;
+                if (connection.Transport == null || !connection.Account.IsValid) throw new InvalidOperationException("Provider returned an incomplete connection.");
+                Manager.NetworkConfig.NetworkTransport = connection.Transport;
+                LocalAccount = connection.Account;
                 Status = "Opening the online arena...";
                 var loading = SceneManager.LoadSceneAsync("TestArena");
                 while (!loading.isDone) await Task.Yield();
@@ -146,9 +167,10 @@ namespace TowerDefense.Networking
                 if (!IsCurrent(attempt)) return;
                 Connecting = false;
                 JoinCode = string.Empty;
-                SteamRooms.Leave();
+                provider.Leave();
+                LocalAccount = default;
                 ServiceErrorCode = null;
-                Status = SteamLobbyService.DescribeFailure(error);
+                Status = provider.DescribeFailure(error);
                 // Service messages can include response bodies: only log their type/code, never credentials.
                 Debug.LogWarning($"TD_ONLINE_CONNECT_FAILED type={error.GetType().Name} code={ServiceErrorCode}");
                 if (Manager.IsListening) Manager.Shutdown();
@@ -161,7 +183,7 @@ namespace TowerDefense.Networking
             }
         }
 
-        private static async Task ObserveAbandonedRequest(Task<SteamRoom> request)
+        private static async Task ObserveAbandonedRequest(Task<OnlineConnection> request)
         {
             try { await request; } catch { /* Canceled attempts cannot update UI or start networking. */ }
         }
@@ -172,7 +194,8 @@ namespace TowerDefense.Networking
             if (!started)
             {
                 Connecting = false;
-                if (Online) SteamRooms.Leave();
+                if (Online) OnlineProvider.Leave();
+                LocalAccount = default;
                 Status = "Could not start the connection. Return to the menu and try again.";
             }
             else if (host)
@@ -195,7 +218,8 @@ namespace TowerDefense.Networking
             if (!IsCurrent(attempt) || !Connecting) yield break;
             Connecting = false;
             Manager.Shutdown();
-            if (Online) SteamRooms.Leave();
+            if (Online) OnlineProvider.Leave();
+            LocalAccount = default;
             JoinCode = string.Empty;
             Status = "The host did not respond. Return to the menu and check the room code or address.";
         }
@@ -248,7 +272,8 @@ namespace TowerDefense.Networking
             {
                 bool wasJoining = Connecting;
                 Connecting = false;
-                if (Online) SteamRooms.Leave();
+                if (Online) OnlineProvider.Leave();
+                LocalAccount = default;
                 JoinCode = string.Empty;
                 string reason = Manager.DisconnectReason;
                 if (string.IsNullOrEmpty(reason) || reason.StartsWith("[Disconnect Event]"))
@@ -280,19 +305,20 @@ namespace TowerDefense.Networking
             if (!stopping) StartCoroutine(LeaveRoutine());
         }
 
-        private void SteamHostLost()
+        private void OnlineHostLost()
         {
             if (!Online || stopping) return;
             Connecting = false;
             JoinCode = string.Empty;
+            LocalAccount = default;
             Manager.Shutdown();
-            Status = "Steam host left the room. Return to the menu to reconnect.";
+            Status = "Host left the room. Return to the menu to reconnect.";
         }
 
-        public void InviteSteamFriend()
+        public void InviteFriend()
         {
-            if (SteamService.ShowInviteOverlay()) return;
-            Status = "Steam overlay is unavailable here. Share the room code with your Steam friend instead.";
+            if (OnlineProvider.ShowInviteOverlay()) return;
+            Status = "The invitation overlay is unavailable here. Share the room code with your friend instead.";
         }
 
         private IEnumerator LeaveRoutine()
@@ -300,7 +326,8 @@ namespace TowerDefense.Networking
             stopping = true;
             connectionAttempt++;
             preparationCancellation?.Cancel();
-            SteamRooms.Leave();
+            OnlineProvider.Leave();
+            LocalAccount = default;
             Connecting = false;
             JoinCode = string.Empty;
             Online = false;
@@ -318,8 +345,8 @@ namespace TowerDefense.Networking
             if (Instance != this) return;
             connectionAttempt++;
             preparationCancellation?.Cancel();
-            SteamRooms?.Leave();
-            if (SteamService != null) SteamService.HostLost -= SteamHostLost;
+            OnlineProvider?.Leave();
+            if (OnlineProvider != null) OnlineProvider.HostLost -= OnlineHostLost;
             if (Manager != null)
             {
                 Manager.OnClientConnectedCallback -= Connected;

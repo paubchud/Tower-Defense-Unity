@@ -67,6 +67,7 @@ namespace TowerDefense.Tests
             Directory.CreateDirectory(Path.Combine(directory, "TowerDefense_BackUpThisFolder_ButDontShipItWithYourGame"));
             File.WriteAllText(Path.Combine(directory, "TowerDefense.exe"), "fixture exe");
             File.WriteAllText(Path.Combine(directory, "UnityPlayer.dll"), "fixture runtime");
+            File.WriteAllText(Path.Combine(directory, "steam_appid.txt"), "480");
             File.WriteAllText(Path.Combine(directory, "TowerDefense_Data/globalgamemanagers"), "fixture data");
             File.WriteAllText(Path.Combine(directory, "TowerDefense_BackUpThisFolder_ButDontShipItWithYourGame/debug"), "do not ship");
             VersionedBuild.CreateArchive(directory, directory + ".zip");
@@ -100,6 +101,8 @@ namespace TowerDefense.Tests
             Assert.That(info.version, Is.EqualTo("0.1"));
             Assert.That(info.executable, Is.EqualTo("TowerDefense-0.1-Windows/TowerDefense.exe"));
             Assert.That(info.archive, Is.EqualTo("TowerDefense-0.1-Windows.zip"));
+            Assert.That(info.privateSteamPlaytestAvailable, Is.True);
+            Assert.That(File.ReadAllText(Path.Combine(directory, "Start-Private-Steam-Test.cmd")), Does.Contain("-td-steam-playtest"));
         }
 
         [Test]
