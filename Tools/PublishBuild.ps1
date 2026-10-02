@@ -67,17 +67,54 @@ try {
     $credentialLines = $null
     $passwordLine = $null
     $token = $null
+    Write-Output 'GitHub credential acquired; checking repository and pushed source.'
 
     function Invoke-ReleaseApi([string]$method, [string]$url, $body = $null, [switch]$AllowNotFound, [string]$upload = '') {
         try {
-            if ($upload) { return Invoke-RestMethod -Method $method -Uri $url -Headers $headers -ContentType 'application/zip' -InFile $upload }
-            if ($null -ne $body) {
+            # Stream binary uploads rather than buffering/enumerating a ZIP in PowerShell.
+            $request = [System.Net.HttpWebRequest]::Create($url)
+            $request.Method = $method
+            $request.Accept = $headers.Accept
+            $request.UserAgent = $headers['User-Agent']
+            $request.Headers['Authorization'] = $headers.Authorization
+            $request.Headers['X-GitHub-Api-Version'] = $headers['X-GitHub-Api-Version']
+            $request.Timeout = 180000
+            $request.ReadWriteTimeout = 180000
+            $request.AllowWriteStreamBuffering = $false
+            if ($upload) {
+                $request.ContentType = 'application/zip'
+                $request.ContentLength = (Get-Item -LiteralPath $upload).Length
+                $fileStream = [System.IO.File]::OpenRead($upload)
+                $requestStream = $null
+                try {
+                    $requestStream = $request.GetRequestStream()
+                    $fileStream.CopyTo($requestStream, 131072)
+                } finally {
+                    if ($null -ne $requestStream) { $requestStream.Dispose() }
+                    $fileStream.Dispose()
+                }
+            } elseif ($null -ne $body) {
                 $json = [System.Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Depth 10))
-                return Invoke-RestMethod -Method $method -Uri $url -Headers $headers -ContentType 'application/json; charset=utf-8' -Body $json
+                $request.ContentType = 'application/json; charset=utf-8'
+                $request.ContentLength = $json.Length
+                $requestStream = $request.GetRequestStream()
+                try { $requestStream.Write($json, 0, $json.Length) } finally { $requestStream.Dispose() }
+            } elseif ($method -eq 'POST' -or $method -eq 'PATCH') {
+                $request.ContentLength = 0
             }
-            return Invoke-RestMethod -Method $method -Uri $url -Headers $headers
+            $response = $request.GetResponse()
+            $reader = $null
+            try {
+                $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
+                return ($reader.ReadToEnd() | ConvertFrom-Json)
+            } finally {
+                if ($null -ne $reader) { $reader.Dispose() }
+                $response.Dispose()
+            }
         } catch {
-            $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+            $exception = $_.Exception
+            while ($null -ne $exception.InnerException) { $exception = $exception.InnerException }
+            $status = if ($exception -is [System.Net.WebException] -and $null -ne $exception.Response) { [int]$exception.Response.StatusCode } else { 0 }
             if ($AllowNotFound -and $status -eq 404) { return $null }
             throw "GitHub request failed (HTTP $status). Check connection and repository Contents permissions. Any incomplete new release remains a draft."
         }
@@ -89,10 +126,17 @@ try {
     # Ensures the release references uploaded source, not an unrelated default-branch revision.
     $null = Invoke-ReleaseApi 'GET' ($api + '/commits/' + $commit)
     $release = Invoke-ReleaseApi 'GET' ($api + '/releases/tags/' + $tag) -AllowNotFound
+    if (-not $release) {
+        # A draft need not yet have a public tag; find it by release metadata for safe resumption.
+        $matchingDraft = @(Invoke-ReleaseApi 'GET' ($api + '/releases?per_page=100') | Where-Object { $_.tag_name -eq $tag })
+        if ($matchingDraft.Count -gt 1) { throw 'Multiple matching releases found; resolve them before publishing.' }
+        if ($matchingDraft.Count -eq 1) { $release = $matchingDraft[0] }
+    }
     if ($release -and (-not $release.draft -or $release.target_commitish -ne $commit)) {
         throw "$tag already exists. Bump the game version and rebuild; published releases are never overwritten."
     }
     if (-not $release) {
+        Write-Output "Creating unpublished $tag draft."
         $release = Invoke-ReleaseApi 'POST' ($api + '/releases') @{
             tag_name = $tag
             target_commitish = $commit
@@ -105,6 +149,7 @@ try {
     }
     $asset = @($release.assets | Where-Object { $_.name -eq $build.archive })
     if ($asset.Count -eq 0) {
+        Write-Output "Streaming $($build.archive) to GitHub."
         $uploadUrl = ($release.upload_url -replace '\{\?name,label\}$', '') + '?name=' + [System.Uri]::EscapeDataString($build.archive)
         if (-not $uploadUrl.StartsWith('https://uploads.github.com/repos/' + $repositoryName + '/')) { throw 'Unexpected GitHub upload destination.' }
         $asset = @(Invoke-ReleaseApi 'POST' $uploadUrl -upload $archive)

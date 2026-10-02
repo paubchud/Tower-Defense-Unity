@@ -10,6 +10,6 @@ For every meaningful gameplay, networking, build, tooling, or release increment,
 - Update the current-status summary and record fixed release tags/downloads after publication succeeds.
 - Preserve older entries and recovery checkpoints; do not erase history to make progress appear complete.
 
-Use `codex/` update branches, preserve existing user changes, and retain published tags/downloads. Main may be merged only when authorized and the relevant update is verified. The owner requested EOS guest multiplayer first, then merge/push that verified result, then Step 2 as version 0.2. EOS developer setup is currently pending; the 0.1 prototype still uses Unity Relay.
+Use `codex/` update branches, preserve existing user changes, and retain published tags/downloads. Main may be merged only when authorized and the relevant update is verified. The owner canceled EOS and requested Steam-only compatibility next, then the verified networking merge/push, then Step 2 as version 0.2. Do not resume the canceled EOS integration. Steamworks App ID confirmation is pending; the 0.1 prototype still uses Unity Relay.
 
 Use the versioned builder for versioned Windows ZIPs and automatic updates of the existing executable shortcut. Publish tested downloadable updates with `Tools/PublishBuild.ps1`; never silently replace published releases or enable paid service billing.

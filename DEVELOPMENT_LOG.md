@@ -9,8 +9,17 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 - **Step 1 / version 0.1:** implemented and tested; versioned Windows build and ZIP created. Latest changes passed 33 automated tests and standalone multiplayer regression. GitHub release publication is in progress below.
 - **Local launcher:** the existing `TowerDefense.exe.lnk` is now updated automatically by the versioned build command, after successful packaging. Older builds are retained.
 - **GitHub recovery:** each published version will have a fixed `v<version>` tag and retained downloadable ZIP. Work stays on separate update branches; commits do not erase earlier snapshots.
-- **Next networking update:** EOS guest multiplayer for itch. Epic developer product/client setup is not done yet; EOS is not implemented or verified. Current online play still uses Unity Relay.
-- **Next gameplay release:** 0.2, Step 2's combat and troop sending, after EOS is verified, merged, and pushed as requested.
+- **Next networking update:** Steam-only compatibility and multiplayer. EOS was explicitly canceled by the owner. Steamworks App ID confirmation and SDK/transport integration are pending; current 0.1 online play still uses Unity Relay.
+- **Next gameplay release:** 0.2, Step 2's combat and troop sending, after the Steam networking increment is verified, merged, and pushed.
+
+## 2026-10-01 - Direction changed to Steam only
+
+Status: confirmed design change; integration not yet implemented.
+
+- The owner canceled EOS and requested Steam-only compatibility. No EOS SDK was installed, no Epic product was created, and no EOS game code needs to be removed.
+- Plan Steam account identity and Steam lobby/P2P relay networking; retain local LAN diagnostics. Guest itch play and cross-store multiplayer are no longer requirements for the next networking increment.
+- Preserve version 0.1's source/build checkpoint before starting Steam on a separate branch. Do not label Steam networking verified until its SDK, App ID, and multiplayer checks are actually ready.
+- The release helper's first run consumed excessive memory and was stopped. No GitHub release/draft was created. HTTP requests/uploads now use bounded streaming and visible stages; retry/verification are pending.
 
 ## 2026-10-01 - Version 0.1 packaging and release workflow
 
@@ -42,7 +51,7 @@ Branch: `codex/internet-join-codes`.
 ### Still to finish
 
 - Commit/push the source and publish/verify the GitHub `v0.1` download.
-- Start EOS on a separate branch. Configure the owner's Epic developer product, then implement and verify guest identity, room discovery, P2P/relay, cleanup, and two-player limits before merging.
+- Start Steam integration on a separate branch; confirm the game's App ID, then implement and verify identity, lobby discovery/invites, P2P relay, cleanup, and two-player limits before merging. The earlier EOS plan was canceled.
 
 ## 2026-10-01 - Internet room-code multiplayer
 
