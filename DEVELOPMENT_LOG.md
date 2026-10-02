@@ -16,6 +16,7 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 
 Status: implemented; automated tests passed; not a released or fully verified Steam multiplayer update.
 Branch: `codex/steam-integration`. Based on the fixed `v0.1` checkpoint; main remains unchanged.
+Source checkpoint: [`79c68ca`](https://github.com/paubchud/Tower-Defense-Unity/commit/79c68ca), committed and pushed to GitHub. This is a preview source checkpoint, not a merged or published Steam release.
 
 ### Added
 
