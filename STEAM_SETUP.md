@@ -1,10 +1,10 @@
 # Steam setup and verification
 
-Status: version **0.1.2 experimental development playtest** on `codex/public-playtest-download`. The owner authorized a public GitHub prerelease ZIP; publication is pending. You do not need to register your game's App ID for this SDK test. The game's production App ID remains zero; stable `v0.1` remains the earlier Unity Relay build.
+Status: version **0.1.2 experimental development playtest** on `codex/public-playtest-download`. The [public GitHub prerelease ZIP](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2) is published; anonymous download and checksum verification passed. You do not need to register your game's App ID for this SDK test. The game's production App ID remains zero; stable `v0.1` remains the earlier Unity Relay build.
 
 ## Play privately with a friend now
 
-1. Both sign into Steam on **separate accounts/devices** and be Steam friends. Download **TowerDefense-0.1.2-Windows.zip** from the [v0.1.2 prerelease Assets](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2) after publication, not GitHub's source-code ZIP. The same ZIP is local in `Builds`.
+1. Both sign into Steam on **separate accounts/devices** and be Steam friends. Download **TowerDefense-0.1.2-Windows.zip** from the [v0.1.2 prerelease Assets](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2), not GitHub's source-code ZIP. The same ZIP is local in `Builds`.
 2. Both extract the whole ZIP. Open **Start-Private-Steam-Test.cmd**. This launches the game with explicit `-td-steam-playtest` and keeps it open for normal play; it is not the SDK diagnostic that exits automatically.
 3. Alternatively, open `TowerDefense.exe`/the repository shortcut, select Play and a class, then click **Enable Private Steam Test (480)**. Both players must enable this mode.
 4. The host chooses **Host Steam**, then **Copy Room Code**. Share that numeric code privately; your friend selects their class, enters the code, and chooses **Join Steam**. Both press **Ready**. The host must keep the game open.

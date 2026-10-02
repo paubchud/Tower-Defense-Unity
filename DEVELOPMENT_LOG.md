@@ -10,26 +10,30 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 - **Local launcher:** the existing `TowerDefense.exe.lnk` is now updated automatically by the versioned build command, after successful packaging. Older builds are retained.
 - **GitHub recovery:** each published version will have a fixed `v<version>` tag and retained downloadable ZIP. Work stays on separate update branches; commits do not erase earlier snapshots.
 - **Current networking work:** private Steam 0.1.2 on `codex/private-steam-playtest`, with explicit playable App ID 480 development mode and guest-ready provider/identity boundaries. All 47 automated tests, Windows packaging/launcher, native private host/leave/rehost and LAN checks passed. Real two-account/device Steam P2P verification is pending. A real App ID is a later production-distribution requirement, not a blocker for private tests. Released 0.1 still uses Unity Relay.
-- **Public playtest download:** owner-authorized 0.1.2 experimental GitHub prerelease is being prepared on `codex/public-playtest-download`. The ZIP is unchanged; publication and public-download verification are pending. Stable `v0.1`, main and friends-only lobby behavior are retained.
+- **Public playtest download:** [v0.1.2 experimental prerelease](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2) is published at fixed source `a340482` on `codex/public-playtest-download`. The exact existing ZIP passed repeated LAN checks, GitHub size/SHA256/tag checks and a full anonymous download/checksum check. Stable `v0.1`, main and friends-only lobby behavior are retained.
 - **Guest play:** future requirement restored. Provider/identity separation is implemented; guest internet/login/persistent saves are not. No backend/billing is enabled; EOS remains canceled. See [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md).
 - **Next gameplay release:** 0.2, Step 2's combat and troop sending, after the Steam networking increment is verified, merged, and pushed.
 
 ## 2026-10-01 - Public Steam playtest download 0.1.2
 
-Status: publication preparation; not uploaded yet. The owner explicitly requested a public download, superseding the earlier private-only ZIP distribution decision.
+Status: published public **experimental prerelease**, not production Steam distribution or verified two-user P2P. The owner explicitly requested a public download, superseding the earlier private-only ZIP distribution decision.
 Branch: `codex/public-playtest-download`, based on `cdf1cf1`. This changes release tooling/instructions, not gameplay or the existing executable/shortcut. Main and older downloads are unchanged.
+Fixed tag/source: [`v0.1.2` / `a340482`](https://github.com/paubchud/Tower-Defense-Unity/commit/a340482). [Release](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2) / [Windows ZIP](https://github.com/paubchud/Tower-Defense-Unity/releases/download/v0.1.2/TowerDefense-0.1.2-Windows.zip). No existing release/tag/asset was replaced.
 
 ### Changed
 
 - Added an explicit `-SteamTestPrerelease` publisher option for an experimental App ID 480 development ZIP. Normal production App ID guards remain. This route requires the test launcher, publishes as a prerelease, never promotes it to latest stable and cannot replace an existing release or change main.
 - Added versioned download/launch instructions and limitations in `Releases/0.1.2.md`, including separate Steam accounts/devices, complete extraction, Spacewar identity, friends-only lobbies and unverified remote P2P.
 - Updated repository/setup/plan instructions for public ZIP distribution without committing generated Builds or giving friends source write access. Future guest play remains unimplemented and no backend/billing changed.
+- The packaged private readme predates the owner's public-download decision; release notes clarify its outdated "not public distribution" line without replacing the published/tested ZIP. Runtime test-mode limitations remain unchanged.
 
 ### Verification / remaining
 
 - Reusing the exact locally verified 0.1.2 ZIP: 71,694,212 bytes; SHA256 `22ebbfc0ebfcfbab353c9317bd20a6a3197e7bc67368e85fd3cfd221787e7939`. Its 47 automated tests and native single-host checks are recorded below; no runtime code changed here.
 - Publisher PowerShell syntax passed; default production publication rejected the Steam preview, while explicit `-SteamTestPrerelease -DryRun` selected the correct ZIP without authentication/upload. ZIP contents passed the executable/runtime/Steam DLL/launcher/readme checks and exclude local `steam_appid.txt`, Unity backup folders, `.git` and `.env` files. Size/SHA256 match the previously verified package.
-- Repeated exact-build LAN checks, GitHub upload/tag and anonymous download verification are pending.
+- The publisher repeated LAN regression against the exact executable: host/client/third PASS, including controls/reset/disconnect/swapped-class rejoin (`Builds/Validation/Smoke-20261001-233918`). It then streamed the ZIP, checked GitHub's asset size/SHA256 and published as `prerelease=true`, `draft=false`, without promoting it to latest stable.
+- Independent **unauthenticated** GitHub checks passed: public prerelease metadata/ZIP digest, fixed tag at `a34048292d485b40bbce69d0dcee11f2385a55e8`, unchanged main `079e2d2` and latest stable `v0.1`. Downloaded the complete ZIP anonymously as a stream; length and computed SHA256 match the original package. Friends do not need GitHub access invitations.
+- No Unity runtime change/rebuild or new automated/native Steam test was needed for this distribution-only update; previously recorded 47 tests/single-host checks remain the runtime evidence.
 - Real two-account/device Steam P2P and separate-home reachability remain unverified; public availability must not imply those checks passed. Do not merge networking yet; Step 2 remains 0.2 after that gate.
 
 ## 2026-10-01 - Private Steam playtest 0.1.2 and guest preparation
