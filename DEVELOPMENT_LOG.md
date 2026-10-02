@@ -6,11 +6,50 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 
 ## Current status
 
-- **Step 1 / version 0.1:** implemented and tested; versioned Windows build and ZIP created. Latest changes passed 33 automated tests and standalone multiplayer regression. GitHub release publication is in progress below.
+- **Step 1 / version 0.1:** released on GitHub as fixed tag `v0.1`, source checkpoint `881ee16`. [Download/release](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1). Its Windows ZIP passed size/SHA256 verification and standalone regression.
 - **Local launcher:** the existing `TowerDefense.exe.lnk` is now updated automatically by the versioned build command, after successful packaging. Older builds are retained.
 - **GitHub recovery:** each published version will have a fixed `v<version>` tag and retained downloadable ZIP. Work stays on separate update branches; commits do not erase earlier snapshots.
-- **Next networking update:** Steam-only compatibility and multiplayer. EOS was explicitly canceled by the owner. Steamworks App ID confirmation and SDK/transport integration are pending; current 0.1 online play still uses Unity Relay.
+- **Current networking work:** Steam-only 0.1.1 preview on `codex/steam-integration`. SDK/lobby/P2P integration is implemented. All 36 automated tests, final Windows packaging, LAN regression, private native SDK/lobby check, and unset-App-ID menu/retry check passed. Own-game App ID and real two-account/device multiplayer verification remain pending. EOS is canceled; released 0.1 still uses Unity Relay.
 - **Next gameplay release:** 0.2, Step 2's combat and troop sending, after the Steam networking increment is verified, merged, and pushed.
+
+## 2026-10-01 - Steam integration preview 0.1.1
+
+Status: implemented; automated tests passed; not a released or fully verified Steam multiplayer update.
+Branch: `codex/steam-integration`. Based on the fixed `v0.1` checkpoint; main remains unchanged.
+
+### Added
+
+- Pinned Steamworks.NET 2025.164.1 dependency, Steam settings asset, and Steam SDK lifecycle handling.
+- Steam account-based, friends-only two-player lobbies, numeric codes, version/game matching, friend-invite overlay, and received/startup invite codes.
+- NGO SteamNetworkingSockets P2P transport, room-member checks, native reliable delivery, and explicit unreliable sequence/duplicate filtering.
+- Packet size is bounded by the SDK's actual send limit; pending native room requests are capped so rapid cancel/retry cannot grow retained callbacks without limit.
+- Canceled/late room cleanup, host-loss handling without authority migration, and immediate socket cleanup on leave/rehost.
+- Game-version validation in connection approval, separate from class selection.
+- Steam host/join/invite menu actions, retained LAN/This PC diagnostics, and an explicit private SDK-only test using Valve's example app.
+- A separate opt-in no-App-ID menu/retry diagnostic; normal play never silently uses Valve's sample identity. The SDK-generated local sample file is ignored by Git.
+- Steam App ID 0 and 480 release-publication guards; Steam setup and two-device acceptance checklist in [STEAM_SETUP.md](STEAM_SETUP.md).
+- Removed active Unity Relay authentication/connector/code and Multiplayer Services dependency from this branch. These remain recoverable in `v0.1`/the original branch; no billing was enabled.
+- Release helper now reports the post-publication download URL rather than its temporary draft asset URL.
+
+### Verified so far
+
+- Unity imported the pinned SDK and compiled the integration.
+- 36/36 automated tests passed: game foundations, Steam lobby-code validation, fake-service cancellation/retry/error handling, packet offset/order/duplicate/wraparound checks, and build publication protections.
+- No live Steam service is called by the fake-service tests; the real SDK's private diagnostic is separate.
+- Initial 0.1.1 Windows development build/package succeeded (`TD_BUILD_PASS`/`TD_PUBLISH_PASS`). The ZIP includes `steam_api64.dll` and the Steamworks.NET managed library; no `steam_appid.txt` or Unity do-not-ship backup is included. The shortcut and manifest target the preview, with Steam App ID zero recorded.
+- Standalone LAN regression passed against the explicit 0.1.1 executable: host/client/third-player checks, controls, reset, disconnect, and swapped-class rejoin. Output: `Builds/Validation/Smoke-20261001-205823`. Menu/arena/equipment captures were visually checked.
+- Real private Steam SDK diagnostic passed on this developer account using App ID 480: initialization, signed-in identity, private lobby create/leave/fresh rehost (`Builds/Validation/steam-private.log`). It did not invite/message anyone and does not prove two-player P2P.
+- PowerShell syntax checks passed, and `PublishBuild.ps1 -DryRun` rejected the App ID zero preview before authentication/upload. No Steam preview release was published.
+- Final recheck after packet/request limits: 36/36 tests passed (`Builds/Validation/steam-tests-final.xml`); versioned build succeeded without overwriting the first preview, producing `TowerDefense-0.1.1-Windows-build2`. Its ZIP dependency/exclusion check passed and the shortcut targets this executable.
+- Local final preview ZIP SHA256: `efde8df0577452af54a7203d313efe8aa7c94b797f13b6b2a205258f24da2b8f`. This is not a published release asset.
+- Final build LAN host/client/third checks all passed in `Builds/Validation/Smoke-20261001-210714`.
+- Final private SDK/lobby and no-App-ID menu/retry diagnostics both passed in `Builds/Validation/Steam-final-20261001`. The latter verified no native initialization and a usable setup error/retry; its live connection-menu capture was visually checked.
+
+### Not verified / remaining
+
+- The game's own App ID, entitlement/distribution setup, two Steam accounts/devices, real NGO P2P replication, invites, and separate-home testing are not verified.
+- No Steam Cloud/progression, achievements, matchmaking queue, host migration, or Steam depot upload.
+- Do not merge into main or publish this preview as Steam-ready until the real App ID/multiplayer gate passes. Then start gameplay Step 2 as 0.2.
 
 ## 2026-10-01 - Direction changed to Steam only
 
@@ -19,12 +58,13 @@ Status: confirmed design change; integration not yet implemented.
 - The owner canceled EOS and requested Steam-only compatibility. No EOS SDK was installed, no Epic product was created, and no EOS game code needs to be removed.
 - Plan Steam account identity and Steam lobby/P2P relay networking; retain local LAN diagnostics. Guest itch play and cross-store multiplayer are no longer requirements for the next networking increment.
 - Preserve version 0.1's source/build checkpoint before starting Steam on a separate branch. Do not label Steam networking verified until its SDK, App ID, and multiplayer checks are actually ready.
-- The release helper's first run consumed excessive memory and was stopped. No GitHub release/draft was created. HTTP requests/uploads now use bounded streaming and visible stages; retry/verification are pending.
+- The release helper's first run consumed excessive memory and was stopped without creating a release/draft. Bounded streaming fixed the path; the retry successfully published and verified `v0.1`.
 
 ## 2026-10-01 - Version 0.1 packaging and release workflow
 
-Status: implemented locally; verification/publication in progress.
+Status: implemented, verified, and released as `v0.1`.
 Branch: `codex/internet-join-codes`.
+Released source checkpoint: `881ee16`; [release/download](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1).
 
 ### Added
 
@@ -47,10 +87,10 @@ Branch: `codex/internet-join-codes`.
 - The actual shortcut points to `Builds/TowerDefense-0.1-Windows/TowerDefense.exe`; its working directory is correct.
 - The ZIP contains the executable, Unity runtime, and data, with no Unity do-not-ship debug-backup entries. Release selection passed a no-upload dry run.
 - Standalone host, client, and third-player checks passed for this exact 0.1 build: controls, synchronized state, reset, disconnect, rejoin, and two-player limit. Captures saved in `Builds/Validation/Smoke-20261001-200836`.
+- GitHub latest-release endpoint confirms public `v0.1` at source `881ee16`. The Windows ZIP is 73,178,197 bytes; its server SHA256 matches the local archive. The publishing retry repeated host/client/third checks successfully in `Builds/Validation/Smoke-20261001-202259`.
 
 ### Still to finish
 
-- Commit/push the source and publish/verify the GitHub `v0.1` download.
 - Start Steam integration on a separate branch; confirm the game's App ID, then implement and verify identity, lobby discovery/invites, P2P relay, cleanup, and two-player limits before merging. The earlier EOS plan was canceled.
 
 ## 2026-10-01 - Internet room-code multiplayer

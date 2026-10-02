@@ -21,7 +21,7 @@ The Store's purchase currency is earned by playing. Real-money purchases are not
 ## Publishing, guest identity, and saved progress
 
 - The latest owner decision is Steam-only compatibility/multiplayer. The previous EOS/itch-guest direction is canceled; Steam accounts may be required for online play.
-- Multiplayer should not require router port forwarding or metered third-party service-usage charges. Planned identity/rooms/transport: Steamworks account identity, lobbies/invites, and P2P relay, separate from gameplay authority. This is not part of the current Unity Relay 0.1 prototype.
+- Multiplayer should not require router port forwarding or metered third-party service-usage charges. Target identity/rooms/transport: Steamworks account identity, lobbies/invites, and P2P relay, separate from gameplay authority. The 0.1.1 branch implements a Steam preview awaiting the game's App ID and two-account/device verification; the published 0.1 prototype still uses Unity Relay.
 - Key later saved progress by stable Steam identity; define save schema/migrations/recovery and optional Steam Cloud synchronization before permanent unlocks. Multiplayer does not automatically implement saved progression.
 - Keep private credentials server-side. Player-hosted matches are suitable for private prototype tests, not trusted competitive rewards; persistence/security and storefront costs need their own plan.
 - Name tested builds by update version: `0.1` completes Step 1. Maintain the same local shortcut and a latest GitHub Release download, while retaining previous versions for rollback.
@@ -248,7 +248,7 @@ The actual Store/unlock economy, full 25-class roster and five tower catalogs, e
 ## Open decisions, in implementation order
 
 1. Remaining controls/platform choices: aim behavior, combat/interaction/menu bindings, hotbar size/selection behavior, camera angle/distance/orbit tuning, and target platform. 3D models, continuous hero-centered camera follow, and WASD are confirmed; right-click dragging is interpreted as orbiting around the hero.
-2. Steamworks App ID/distribution configuration, Steam identity/lobby/P2P implementation, save recovery, and host versus trusted dedicated server needs. EOS is canceled. The current private Unity Relay/LAN connection slice is implemented, not the final Steam networking solution.
+2. Steamworks App ID/distribution configuration, two-account/device verification of the implemented Steam preview, save recovery, and host versus trusted dedicated server needs. EOS is canceled. The published 0.1 Unity Relay slice is retained for recovery; it is not the final Steam networking solution.
 3. Sending costs/cooldowns, XP award timing, unit upgrade scope, and kill reward attribution.
 4. Initial class energy pools/costs/recovery, starter equipment slots and compatibility, first Primate/Mystic towers, gold-funded hero leveling, starting land, plot rules, and material recipes.
 5. Invasion access, damage permissions, theft rules, respawn timer/location, carried-resource/equipment handling, ghost energy recovery, and remaining ghost equipment/crafting/sending permissions. The timed respawn and ghost management/attack/collection rules are confirmed.

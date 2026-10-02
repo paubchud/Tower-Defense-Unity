@@ -43,6 +43,10 @@ sysinfo.txt
 *.apk
 *.aab
 *.unitypackage
+
+# Steamworks.NET generates a local development App ID hint on import.
+# Never commit or ship Valve's example app identity.
+steam_appid.txt
 *.app
 *.exe
 *.appimage

@@ -163,23 +163,23 @@ namespace TowerDefense.UI
             Label(page, definition.DisplayName + " / " + definition.TechnologyGroup.DisplayName,
                 new Vector2(0, 100), new Vector2(780, 45), 28, definition.AccentColor);
             Label(page, "ROOM CODE", new Vector2(0, 50), new Vector2(700, 35), 17, Muted);
-            var code = Field(page, string.Empty, new Vector2(0, 5), new Vector2(360, 48));
-            code.characterLimit = 16;
+            var code = Field(page, session.SteamService.PendingInvite, new Vector2(0, 5), new Vector2(480, 48));
+            code.characterLimit = 20;
             var placeholder = Label(code.transform, "Code from your friend", Vector2.zero, new Vector2(336, 44), 20, Muted, TextAnchor.MiddleLeft);
             code.placeholder = placeholder;
-            Label(page, "Host to get a code, or enter your friend's code to join.", new Vector2(0, -40), new Vector2(800, 35), 17, Muted);
+            Label(page, "Steam required. Host, invite a Steam friend, or paste their numeric room code.", new Vector2(0, -40), new Vector2(900, 35), 17, Muted);
             connectionWidgets.Add(code);
-            connectionWidgets.Add(ActionButton(page, "HOST ONLINE", new Vector2(-155, -100), new Vector2(270, 58), () =>
+            connectionWidgets.Add(ActionButton(page, "HOST STEAM", new Vector2(-155, -100), new Vector2(270, 58), () =>
             {
                 _ = session.ConnectOnlineAsync(true, selectedClass);
                 status.text = session.Status;
             }, true));
-            connectionWidgets.Add(ActionButton(page, "JOIN ONLINE", new Vector2(155, -100), new Vector2(270, 58), () =>
+            connectionWidgets.Add(ActionButton(page, "JOIN STEAM", new Vector2(155, -100), new Vector2(270, 58), () =>
             {
                 _ = session.ConnectOnlineAsync(false, selectedClass, code.text);
                 status.text = session.Status;
             }));
-            status = Label(page, "Play together over the internet using a room code. Both players use the same game build.",
+            status = Label(page, "Steam account + lobby/P2P networking. Both players use the same build and separate Steam accounts/devices.",
                 new Vector2(0, -185), new Vector2(850, 90), 17, Muted);
             observedStatus = session.Status;
             connectionWidgets.Add(ActionButton(page, "LAN / THIS PC", new Vector2(150, -275), new Vector2(270, 48), () => BuildLanConnection(classId)));
@@ -248,7 +248,8 @@ namespace TowerDefense.UI
                 if (hero != null) hero.SetReadyRpc(!hero.Ready.Value);
             }, true);
             readyLabel = ready.GetComponentInChildren<Text>();
-            copyCode = ActionButton(lobby, "COPY ROOM CODE", new Vector2(0, -120), new Vector2(280, 38), CopyRoomCode);
+            copyCode = ActionButton(lobby, "COPY ROOM CODE", new Vector2(-135, -120), new Vector2(255, 38), CopyRoomCode);
+            ActionButton(lobby, "INVITE STEAM FRIEND", new Vector2(135, -120), new Vector2(255, 38), session.InviteSteamFriend);
             status = Label(lobby, string.Empty, new Vector2(0, -165), new Vector2(550, 40), 15, Muted);
         }
 

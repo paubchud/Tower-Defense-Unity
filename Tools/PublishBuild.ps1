@@ -8,6 +8,8 @@ $releaseBuildRoot = [System.IO.Path]::GetFullPath((Join-Path $releaseRepo 'Build
 $manifestPath = Join-Path $releaseBuildRoot 'latest-build.json'
 if (-not (Test-Path -LiteralPath $manifestPath)) { throw 'Create a versioned Windows development build first.' }
 $build = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if ($build.PSObject.Properties['onlineProvider'] -and $build.onlineProvider -eq 'Steam' -and
+    ($build.steamAppId -eq 0 -or $build.steamAppId -eq 480)) { throw 'Steam previews with no production App ID (or Valve test App ID 480) cannot be published as game releases.' }
 if ($build.version -notmatch '\A(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){1,2}\z') { throw 'Invalid build version.' }
 
 function Resolve-ReleaseArtifact([string]$relative) {
@@ -159,7 +161,8 @@ try {
     }
     $release = Invoke-ReleaseApi 'PATCH' ($api + '/releases/' + $release.id) @{ draft = $false; prerelease = $false; make_latest = 'true' }
     Write-Output "GitHub release: $($release.html_url)"
-    Write-Output "Download: $($asset[0].browser_download_url)"
+    $publishedAsset = @($release.assets | Where-Object { $_.name -eq $build.archive })
+    Write-Output "Download: $($publishedAsset[0].browser_download_url)"
 } finally {
     $headers.Clear()
     $credentialLines = $null

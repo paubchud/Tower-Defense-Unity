@@ -26,7 +26,11 @@ namespace TowerDefense.Diagnostics
             bool host = Array.IndexOf(args, "-td-smoke-host") >= 0;
             bool client = Array.IndexOf(args, "-td-smoke-client") >= 0;
             bool reject = Array.IndexOf(args, "-td-expect-reject") >= 0;
-            bool online = Array.IndexOf(args, "-td-relay") >= 0;
+            bool online = Array.IndexOf(args, "-td-steam") >= 0;
+            if (!host && !client && Array.IndexOf(args, "-td-steam-config-test") >= 0)
+            { yield return CheckSteamConfiguration(args); yield break; }
+            if (!host && !client && Array.IndexOf(args, "-td-steam-private-test") >= 0)
+            { yield return CheckSteamSdk(); yield break; }
             if (!host && !client) yield break;
             if (active) { Destroy(gameObject); yield break; }
             active = true;
@@ -148,11 +152,11 @@ namespace TowerDefense.Diagnostics
                     if (!string.IsNullOrEmpty(code) && code != oldCode) break;
                     yield return null;
                 }
-                if (string.IsNullOrEmpty(code) || code == oldCode) { Fail("Host did not publish a fresh Relay code."); yield break; }
+                if (string.IsNullOrEmpty(code) || code == oldCode) { Fail("Host did not publish a fresh Steam room code."); yield break; }
                 UnityEngine.Object.FindFirstObjectByType<InputField>().text = code.ToLowerInvariant();
             }
             if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, $"online-connect-{(host ? "host" : "client")}-{classId}.png"));
-            Click(host ? "HOST ONLINE" : "JOIN ONLINE");
+            Click(host ? "HOST STEAM" : "JOIN STEAM");
             double connectionDeadline = Time.realtimeSinceStartupAsDouble + 60;
             while ((session.Connecting || (host && string.IsNullOrEmpty(session.JoinCode))) &&
                    Time.realtimeSinceStartupAsDouble < connectionDeadline)
@@ -164,10 +168,55 @@ namespace TowerDefense.Diagnostics
             {
                 // Only the shareable code is written; allocation credentials/tokens are never logged.
                 System.IO.File.WriteAllText(codeFile, session.JoinCode);
-                Debug.Log("TD_RELAY_HOST_READY");
+                Debug.Log("TD_STEAM_HOST_READY");
             }
             else if (host || session.LocalHero == null)
-                Debug.Log("TD_RELAY_CONNECT_RESULT " + session.Status);
+                Debug.Log("TD_STEAM_CONNECT_RESULT " + session.Status);
+        }
+
+        private static IEnumerator CheckSteamSdk()
+        {
+            // One developer account and Valve's example app, never a two-player/production claim.
+            var service = PrototypeSession.Instance.SteamService;
+            var first = service.HostAsync();
+            double deadline = Time.realtimeSinceStartupAsDouble + 45;
+            while (!first.IsCompleted && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            if (!first.IsCompletedSuccessfully) { service.Leave(); Fail("Steam private SDK check failed (startup/lobby)."); yield break; }
+            string firstCode = first.Result.JoinCode;
+            bool member = service.IsMember(first.Result.HostSteamId);
+            service.Leave();
+            var second = service.HostAsync();
+            deadline = Time.realtimeSinceStartupAsDouble + 45;
+            while (!second.IsCompleted && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            bool passed = second.IsCompletedSuccessfully && service.InitializedAppId == 480 && member && second.Result.JoinCode != firstCode;
+            service.Leave();
+            Debug.Log(passed ? "TD_STEAM_PRIVATE_PASS SDK-init guest-free-Steam-identity private-lobby leave fresh-rehost app=480 developer-only" : "TD_STEAM_PRIVATE_FAIL");
+            Application.Quit(passed ? 0 : 1);
+        }
+
+        private static IEnumerator CheckSteamConfiguration(string[] args)
+        {
+            // The unset preview must show a recoverable error, never fall back to the sample app.
+            var settings = Resources.Load<SteamSettings>("SteamSettings");
+            if (settings == null || settings.AppId != 0) { Fail("Configuration diagnostic requires the unset preview App ID."); yield break; }
+            yield return null;
+            Click("PLAY");
+            yield return null;
+            Click("SELECT", "Warrior");
+            yield return null;
+            Click("HOST STEAM");
+            yield return null;
+            var session = PrototypeSession.Instance;
+            bool passed = session.Status.Contains("not configured") && session.CanConnect &&
+                !session.Manager.IsListening && session.SteamService.InitializedAppId == 0 &&
+                SceneManager.GetActiveScene().name == "MainMenu";
+            Click("HOST STEAM");
+            yield return null;
+            passed &= session.Status.Contains("not configured") && session.CanConnect;
+            string captures = Argument(args, "-td-captures");
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "steam-setup-required.png"));
+            Debug.Log(passed ? "TD_STEAM_CONFIG_PASS app=0 no-native-init recoverable-menu retry" : "TD_STEAM_CONFIG_FAIL");
+            Application.Quit(passed ? 0 : 1);
         }
 
         private static void Click(string name, string parent = null)

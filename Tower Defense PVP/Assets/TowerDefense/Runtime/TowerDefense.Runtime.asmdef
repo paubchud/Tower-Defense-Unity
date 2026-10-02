@@ -1,6 +1,6 @@
 {
   "name": "TowerDefense.Runtime",
   "rootNamespace": "TowerDefense",
-  "references": ["Unity.InputSystem", "Unity.Netcode.Runtime", "Unity.Collections", "Unity.ugui", "Unity.Networking.Transport", "Unity.Services.Core", "Unity.Services.Authentication", "Unity.Services.Multiplayer"],
+  "references": ["Unity.InputSystem", "Unity.Netcode.Runtime", "Unity.Collections", "Unity.ugui", "Unity.Networking.Transport", "com.rlabrecque.steamworks.net"],
   "autoReferenced": true
 }

@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using TowerDefense.Networking;
 
 namespace TowerDefense.Editor
 {
@@ -16,6 +17,8 @@ namespace TowerDefense.Editor
             public string executable;
             public string archive;
             public string builtAtUtc;
+            public string onlineProvider;
+            public uint steamAppId;
         }
 
         public static void ValidateVersion(string version)
@@ -71,7 +74,9 @@ namespace TowerDefense.Editor
                 version = version,
                 executable = Path.GetFileName(directory) + "/TowerDefense.exe",
                 archive = Path.GetFileName(archive),
-                builtAtUtc = DateTime.UtcNow.ToString("o")
+                builtAtUtc = DateTime.UtcNow.ToString("o"),
+                onlineProvider = "Steam",
+                steamAppId = Resources.Load<SteamSettings>("SteamSettings")?.AppId ?? 0
             };
             string json = JsonUtility.ToJson(info, true);
             File.WriteAllText(Path.Combine(directory, "build-info.json"), json);
