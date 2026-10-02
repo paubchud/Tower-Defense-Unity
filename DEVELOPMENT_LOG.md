@@ -17,6 +17,7 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 
 Status: implemented and locally verified; private ZIP ready for a friend test. Not a production Steam release or verified two-user internet match.
 Branch: `codex/private-steam-playtest`, based on the pushed 0.1.1 checkpoint; main and published tags/downloads remain unchanged.
+Source checkpoint: [`7de363e`](https://github.com/paubchud/Tower-Defense-Unity/commit/7de363e), committed and pushed. The ZIP is a local private development artifact, not a public GitHub/Steam release.
 
 ### Added
 
