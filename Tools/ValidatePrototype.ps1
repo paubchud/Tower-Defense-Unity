@@ -1,8 +1,17 @@
-param([switch]$Capture, [switch]$Relay)
+param([switch]$Capture, [switch]$Relay, [string]$ExecutablePath)
 
 $ErrorActionPreference = 'Stop'
 $prototypeRepo = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$prototypeExe = Join-Path $prototypeRepo 'Builds\InternetPrototype\TowerDefense.exe'
+if ($ExecutablePath) {
+    $prototypeExe = [System.IO.Path]::GetFullPath($ExecutablePath)
+} else {
+    $manifestPath = Join-Path $prototypeRepo 'Builds\latest-build.json'
+    if (-not (Test-Path -LiteralPath $manifestPath)) { throw 'Create a versioned Windows build first; see README.md.' }
+    $latest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $buildRoot = [System.IO.Path]::GetFullPath((Join-Path $prototypeRepo 'Builds')) + [System.IO.Path]::DirectorySeparatorChar
+    $prototypeExe = [System.IO.Path]::GetFullPath((Join-Path $buildRoot $latest.executable))
+    if (-not $prototypeExe.StartsWith($buildRoot, [System.StringComparison]::OrdinalIgnoreCase)) { throw 'The latest-build executable is outside Builds.' }
+}
 if (-not (Test-Path -LiteralPath $prototypeExe)) { throw 'Build the Windows development player first; see README.md.' }
 $runDirectory = Join-Path $prototypeRepo ('Builds\Validation\' + $(if ($Relay) { 'Relay-' } else { 'Smoke-' }) + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null

@@ -18,6 +18,14 @@ Long-term progression unlocks different ways to play. Strength gained inside a m
 
 The Store's purchase currency is earned by playing. Real-money purchases are not part of the current specification.
 
+## Publishing, guest identity, and saved progress
+
+- Release on itch first for feedback, then Steam. Guest testing must not require Steam login; Steam/itch cross-play is optional.
+- Multiplayer should not require router port forwarding or incur metered service-usage charges. Planned itch transport/identity: EOS P2P/relay with Connect device-ID guests, separate from gameplay authority. This is a planned integration, not part of the current Unity Relay prototype.
+- Offer optional account linking later so saved progress can survive device changes/reinstallation. Guest/device identity alone is not a recoverable cross-device account. Define save schema/migrations and recovery before implementing permanent unlocks.
+- Keep private credentials server-side. Player-hosted matches are suitable for private prototype tests, not trusted competitive rewards; persistence/security and storefront costs need their own plan.
+- Name tested builds by update version: `0.1` completes Step 1. Maintain the same local shortcut and a latest GitHub Release download, while retaining previous versions for rollback.
+
 ## Presentation and controls
 
 Confirmed direction:
@@ -240,7 +248,7 @@ The actual Store/unlock economy, full 25-class roster and five tower catalogs, e
 ## Open decisions, in implementation order
 
 1. Remaining controls/platform choices: aim behavior, combat/interaction/menu bindings, hotbar size/selection behavior, camera angle/distance/orbit tuning, and target platform. 3D models, continuous hero-centered camera follow, and WASD are confirmed; right-click dragging is interpreted as orbiting around the hero.
-2. Networking solution, local test connection flow, host versus trusted dedicated server needs.
+2. EOS guest/P2P implementation and developer configuration for public itch playtests; account/save recovery and host versus trusted dedicated server needs. The current private Unity Relay/LAN connection slice is implemented, not the final no-usage-charge solution.
 3. Sending costs/cooldowns, XP award timing, unit upgrade scope, and kill reward attribution.
 4. Initial class energy pools/costs/recovery, starter equipment slots and compatibility, first Primate/Mystic towers, gold-funded hero leveling, starting land, plot rules, and material recipes.
 5. Invasion access, damage permissions, theft rules, respawn timer/location, carried-resource/equipment handling, ghost energy recovery, and remaining ghost equipment/crafting/sending permissions. The timed respawn and ghost management/attack/collection rules are confirmed.

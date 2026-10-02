@@ -2,10 +2,15 @@
 
 This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md) for the gameplay specification, assumptions, and unresolved rules. Update both documents when a design decision changes.
 
+[DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md) records actual additions, verification, and release history. Update it with every meaningful implementation/build/release increment; a plan entry does not mean a feature is done.
+
 ## Current state
 
 - Unity project: `Tower Defense PVP`, Unity `6000.6.3f1`, Universal Render Pipeline.
 - Repository contains the Unity project with generated caches, logs, and builds ignored.
+- Step 1 is release version `0.1`. Future completed steps use `0.2`, `0.3`, etc.; intermediate fixes can use patch versions. Use the versioned build command to keep the existing executable shortcut current, and publish tested ZIPs as GitHub Releases so the latest update is downloadable as well as checked in.
+- Recovery policy: one feature branch per update, focused commits, fixed `v<version>` release tags, and retained downloadable builds. Never move published tags, replace existing releases, or force-push/delete prior history. Recover by downloading an old ZIP or creating a new branch from an old tag; main is changed only by an explicitly approved merge.
+- Publishing order: itch guest playtests first, Steam later. No required Steam login, no port forwarding, and no metered multiplayer-service charges. Steam/itch cross-play is optional. EOS device-ID guest identity/P2P relay is the planned replacement for the currently implemented Unity Relay before public itch multiplayer testing; it is not implemented yet.
 - Foundation and the first network-smoke implementation are now present under `Assets/TowerDefense`: menu/class selection, ready lobby, two straight lanes, 3D blockout heroes, server-authoritative movement, hero-centered orbit cameras, starter hotbar, and management-panel placeholders. See README.md for play/build instructions and the implemented-versus-planned boundary.
 - The original generic wave-defense plan has been revised around classes, player-sent units, three currency roles, land, materials, and invasions.
 - Confirmed presentation/controls: 3D models, continuous hero-centered camera follow, and WASD hero movement. Start from an elevated/top-down angle and interpret right-click dragging as orbiting around the hero; camera tuning can change during development.
@@ -21,7 +26,7 @@ Brief local experiments are useful, but do not build the entire game locally bef
 
 ## First implementation defaults
 
-- Target: Windows private prototype. Unity Netcode for GameObjects 2.13.3 with Unity Transport; one player hosts, another joins by address/port. MainMenu and TestArena load locally before connection; no matchmaking, relay, persistent rewards, or dedicated deployment yet.
+- Target: Windows private prototype. Unity Netcode for GameObjects 2.13.3 with Unity Transport; one player hosts. The initial address/port slice now also supports anonymous guest Unity Relay room codes. MainMenu and TestArena load locally before connection; no matchmaking, persistent rewards, EOS, Steam integration, or dedicated deployment yet.
 - Server owns hero movement and replicated class/side/ready/selected-item state. Input is sent at up to 30 Hz; cameras are local. A third connection is rejected. Losing the opponent returns the remaining player to the ready lobby.
 - Starter gear: Warrior sword/mail, Wizard staff/robes; both have a pickaxe. Three provisional hotbar slots (weapon, tool, empty), wheel wrapping, and B/U/T/I/Esc panel shortcuts. Larger inventories, acquisition, crafting, compatibility rules, and rebinding UI wait for their consumers.
 - Energy assets: Warrior stamina and Wizard mana, provisionally 100 capacity. Generic pool spending/recovery rules are independently tested, but combat costs and networked pool state are not connected yet. Equipment UI reports definitions, not a live energy HUD.
@@ -41,7 +46,7 @@ Brief local experiments are useful, but do not build the entire game locally bef
 | Milestone | Build | Acceptance gate |
 | --- | --- | --- |
 | 0. Foundation | Class/group/item/resource definitions, map schema, input actions, authority model | Dependencies and first design choices recorded |
-| 1. Network smoke test | Menu, two classes, 3D arena, WASD, local cameras, starter inventory/hotbar and shortcuts | Player/selection state agrees; cameras and UI input are independent |
+| 1. Network smoke test (0.1) | Menu, two classes, 3D arena, WASD, local cameras, starter inventory/hotbar and shortcuts | Player/selection state agrees; cameras and UI input are independent |
 | 2. Sending and defense | Sent units, one tower per initial group, class attacks/energy, XP/gold, ghost respawn | Combat, energy, group tower access, and respawn agree on both clients |
 | 3. Land and economy | Buy land, harvest, build/trade, hero leveling, inventory and ghost permissions | Transactions cannot duplicate items/resources or overspend; ghosts cannot collect |
 | 4. Invasion | Cross into enemy territory, fight, steal, return or respawn | Both players can invade and recover under the agreed ghost/respawn rules |
@@ -134,7 +139,7 @@ Definition of done: two players can select Warrior/Wizard with Primate/Mystic to
 4. Expand toward all five groups and approximately 25 classes, using supplied class designs. Add class-specific abilities/energies/equipment, group tower sets, sent units, and upgrades through existing definitions. Verify whole-loadout/group balance and performance in small batches.
 5. Add authored maps and challenges with the existing path/plot/node schema. Test invasion routes and resource access for fairness.
 6. Add automatic harvesting as a match investment using the existing harvest transactions. Bound output and schedule work without an update loop per node.
-7. Room-code internet play was brought forward after the first network slice so friends can test remotely. Steam is the primary storefront, with a standalone itch build also planned. Keep authentication/store invites separate from shared gameplay and transport. Add automatic Steam sign-in/friend invites once the game's Steamworks App ID is available, and a shared Play queue when the core match works. Preserve cross-store rooms without port forwarding; add durable account linking before persistent rewards. Add reconnect/rematch improvements and other platforms as required. Relay is not a trusted match-result backend.
+7. Room-code internet play was brought forward after the first network slice so friends can test remotely. Itch guest testing comes first, Steam publishing later. Bring EOS guest/P2P integration forward before the public itch upload to meet the no-metered-usage-charge requirement. Keep authentication/store invites separate from shared gameplay and transport, and retain LAN tests. Cross-play is optional; Steam can use a separate transport later. Add Steam sign-in/invites when the Steamworks App ID is available, a Play queue when the core match works, and optional durable account linking before persistent rewards. Add reconnect/rematch improvements as required. Neither Relay nor EOS P2P is a trusted match-result backend.
 8. Before public persistent rewards or ranked play, add trusted match result processing, backend/profile validation, and an appropriate server deployment. A player-hosted server can manipulate its own authoritative state; client validation alone does not protect competitive rewards.
 9. Add more content, keybinding/settings UI, accessibility, tutorials, art/audio/VFX polish, and progression tuning once the core systems have measured headroom.
 
@@ -196,4 +201,8 @@ Definition of done: two players can select Warrior/Wizard with Primate/Mystic to
 
 ## Next action
 
-The first standalone network slice and live Relay host/join/reset/rehosting are verified. Internet hosting/joining lives separately on `codex/internet-join-codes`, keeping the prior main-branch prototype available. Playtest its elevated hero-centered camera with WASD/right-drag orbit and share a Relay room code for a two-machine internet test. Next choose initial aim/attack bindings, sending costs/cooldowns, XP/gold reward rules, energy costs, tower attacks, castle damage, and ghost timer/respawn defaults for Milestone 2. Decide detailed economy, invasion, loot/crafting, and unlock rules before their respective milestones.
+The first standalone network slice and live Relay host/join/reset/rehosting are verified. Package Step 1 as `0.1`, update the same repository shortcut, and publish its tested ZIP on GitHub from `codex/internet-join-codes`, leaving main untouched. Current room codes still use Unity Relay; do not describe 0.1 as the final EOS/no-usage-charge implementation.
+
+Before public itch multiplayer testing: create/configure the EOS developer product/deployment/client, integrate guest Connect identity and P2P/relay behind the connection boundary, and verify host/join/leave/rehost/third-player rejection from two machines and separate internet connections. Do not enable Unity billing as a substitute. Account linking and durable saved progression are separate later work.
+
+For Milestone 2, choose initial aim/attack bindings, sending costs/cooldowns, XP/gold reward rules, energy costs, tower attacks, castle damage, and ghost timer/respawn defaults. Decide detailed economy, invasion, loot/crafting, and unlock rules before their respective milestones.

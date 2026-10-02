@@ -146,15 +146,20 @@ namespace TowerDefense.Editor
             AssetDatabase.CreateFolder(parent, Path.GetFileName(folder));
         }
 
-        public static void BuildWindows() => BuildWindowsAt("Prototype");
+        public static void BuildWindows() => BuildVersionedWindows();
 
-        public static void BuildInternetWindows() => BuildWindowsAt("InternetPrototype");
+        public static void BuildInternetWindows() => BuildVersionedWindows();
 
-        private static void BuildWindowsAt(string folder)
+        [MenuItem("Tools/Tower Defense/Build Versioned Windows Player")]
+        public static void BuildVersionedWindows()
         {
+            string version = PlayerSettings.bundleVersion;
+            VersionedBuild.ValidateVersion(version);
+            string repository = Path.GetFullPath(Path.Combine(Application.dataPath, "../.."));
+            string directory = VersionedBuild.NextDirectory(repository, version);
             Generate();
-            string output = Path.GetFullPath(Path.Combine(Application.dataPath, "../../Builds/" + folder + "/TowerDefense.exe"));
-            Directory.CreateDirectory(Path.GetDirectoryName(output));
+            string output = Path.Combine(directory, "TowerDefense.exe");
+            Directory.CreateDirectory(directory);
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
                 scenes = new[] { Root + "/Scenes/MainMenu.unity", Root + "/Scenes/TestArena.unity" },
@@ -162,6 +167,8 @@ namespace TowerDefense.Editor
                 options = BuildOptions.Development
             });
             if (report.summary.result != BuildResult.Succeeded) throw new InvalidOperationException("Prototype build failed: " + report.summary.result);
+            // Never change the launcher or latest-build manifest after a failed/canceled build.
+            VersionedBuild.Publish(repository, directory, version);
             Debug.Log("TD_BUILD_PASS " + output);
         }
     }

@@ -107,7 +107,7 @@ namespace TowerDefense.UI
             page.anchorMin = Vector2.zero; page.anchorMax = Vector2.one; page.sizeDelta = Vector2.zero;
             Label(page, "TOWER DEFENSE", new Vector2(0, 270), new Vector2(900, 105), 64, Color.white);
             Label(page, "TWO CASTLES. ONE VICTOR.", new Vector2(0, 195), new Vector2(900, 45), 21, Gold);
-            Label(page, "Private 1v1 prototype", new Vector2(0, -370), new Vector2(800, 30), 16, Muted);
+            Label(page, "Private 1v1 prototype / v" + Application.version, new Vector2(0, -370), new Vector2(800, 30), 16, Muted);
         }
 
         private void BuildMainMenu()
