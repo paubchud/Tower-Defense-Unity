@@ -1,4 +1,4 @@
-param([switch]$DryRun)
+param([switch]$DryRun, [switch]$SteamTestPrerelease)
 
 # Explicit release command: local builds never upload themselves or modify main.
 $ErrorActionPreference = 'Stop'
@@ -8,8 +8,15 @@ $releaseBuildRoot = [System.IO.Path]::GetFullPath((Join-Path $releaseRepo 'Build
 $manifestPath = Join-Path $releaseBuildRoot 'latest-build.json'
 if (-not (Test-Path -LiteralPath $manifestPath)) { throw 'Create a versioned Windows development build first.' }
 $build = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-if ($build.PSObject.Properties['onlineProvider'] -and $build.onlineProvider -eq 'Steam' -and
-    ($build.steamAppId -eq 0 -or $build.steamAppId -eq 480)) { throw 'Steam previews with no production App ID (or Valve test App ID 480) cannot be published as game releases.' }
+$isSteamPreview = $build.PSObject.Properties['onlineProvider'] -and $build.onlineProvider -eq 'Steam' -and
+    ($build.steamAppId -eq 0 -or $build.steamAppId -eq 480)
+if ($isSteamPreview -and -not $SteamTestPrerelease) {
+    throw 'Steam previews require explicit -SteamTestPrerelease for an experimental GitHub download; production releases require the game''s own Steam App ID.'
+}
+if ($SteamTestPrerelease -and (-not $isSteamPreview -or -not $build.PSObject.Properties['privateSteamPlaytestAvailable'] -or
+    -not $build.privateSteamPlaytestAvailable)) {
+    throw '-SteamTestPrerelease requires a Steam development build with the explicit test launcher available.'
+}
 if ($build.version -notmatch '\A(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){1,2}\z') { throw 'Invalid build version.' }
 
 function Resolve-ReleaseArtifact([string]$relative) {
@@ -41,6 +48,7 @@ $repositoryName = $Matches.owner + '/' + ($Matches.repo -replace '\.git$', '')
 $commit = Read-ReleaseGit -arguments @('rev-parse', 'HEAD')
 Write-Output "Release candidate: $repositoryName / $tag / $commit"
 Write-Output "Archive: $archive ($archiveSize bytes, SHA256 $archiveHash)"
+if ($SteamTestPrerelease) { Write-Output 'Experimental Steam test prerelease: public download, not a production release or the latest stable release.' }
 if ($DryRun) { Write-Output 'Dry run: no authentication, upload, or GitHub changes.'; return }
 if (Read-ReleaseGit -arguments @('status', '--porcelain=v1')) { throw 'Commit the tested changes before publishing. This command does not commit, push, merge, or overwrite releases.' }
 
@@ -137,15 +145,18 @@ try {
     if ($release -and (-not $release.draft -or $release.target_commitish -ne $commit)) {
         throw "$tag already exists. Bump the game version and rebuild; published releases are never overwritten."
     }
+    if ($release -and $release.prerelease -ne [bool]$SteamTestPrerelease) {
+        throw 'Existing draft has a different release type. Resolve it explicitly before publishing.'
+    }
     if (-not $release) {
         Write-Output "Creating unpublished $tag draft."
         $release = Invoke-ReleaseApi 'POST' ($api + '/releases') @{
             tag_name = $tag
             target_commitish = $commit
-            name = 'Tower Defense ' + $build.version
+            name = 'Tower Defense ' + $build.version + $(if ($SteamTestPrerelease) { ' - Experimental Steam Playtest' } else { '' })
             body = Get-Content -LiteralPath $notesPath -Raw
             draft = $true
-            prerelease = $false
+            prerelease = [bool]$SteamTestPrerelease
             make_latest = 'false'
         }
     }
@@ -159,7 +170,11 @@ try {
     if ($asset.Count -ne 1 -or $asset[0].state -ne 'uploaded' -or $asset[0].size -ne $archiveSize -or $asset[0].digest -ne ('sha256:' + $archiveHash)) {
         throw 'GitHub asset verification failed. The draft is not published; no existing assets were deleted or replaced.'
     }
-    $release = Invoke-ReleaseApi 'PATCH' ($api + '/releases/' + $release.id) @{ draft = $false; prerelease = $false; make_latest = 'true' }
+    $release = Invoke-ReleaseApi 'PATCH' ($api + '/releases/' + $release.id) @{
+        draft = $false
+        prerelease = [bool]$SteamTestPrerelease
+        make_latest = $(if ($SteamTestPrerelease) { 'false' } else { 'true' })
+    }
     Write-Output "GitHub release: $($release.html_url)"
     $publishedAsset = @($release.assets | Where-Object { $_.name -eq $build.archive })
     Write-Output "Download: $($publishedAsset[0].browser_download_url)"

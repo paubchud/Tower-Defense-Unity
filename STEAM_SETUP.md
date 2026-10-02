@@ -1,10 +1,10 @@
 # Steam setup and verification
 
-Status: version **0.1.2 private development playtest** on `codex/private-steam-playtest`. You do not need to register your game's App ID for this private SDK test. The game's production App ID remains zero; the public GitHub download is still the earlier Unity Relay `v0.1`.
+Status: version **0.1.2 experimental development playtest** on `codex/public-playtest-download`. The owner authorized a public GitHub prerelease ZIP; publication is pending. You do not need to register your game's App ID for this SDK test. The game's production App ID remains zero; stable `v0.1` remains the earlier Unity Relay build.
 
 ## Play privately with a friend now
 
-1. Both sign into Steam on **separate accounts/devices** and be Steam friends. Privately send your friend the whole `Builds/TowerDefense-0.1.2-Windows.zip` (use the latest-build manifest if a repeated build has a suffix).
+1. Both sign into Steam on **separate accounts/devices** and be Steam friends. Download **TowerDefense-0.1.2-Windows.zip** from the [v0.1.2 prerelease Assets](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2) after publication, not GitHub's source-code ZIP. The same ZIP is local in `Builds`.
 2. Both extract the whole ZIP. Open **Start-Private-Steam-Test.cmd**. This launches the game with explicit `-td-steam-playtest` and keeps it open for normal play; it is not the SDK diagnostic that exits automatically.
 3. Alternatively, open `TowerDefense.exe`/the repository shortcut, select Play and a class, then click **Enable Private Steam Test (480)**. Both players must enable this mode.
 4. The host chooses **Host Steam**, then **Copy Room Code**. Share that numeric code privately; your friend selects their class, enters the code, and chooses **Join Steam**. Both press **Ready**. The host must keep the game open.
@@ -14,7 +14,7 @@ This mode uses Valve's shared [Spacewar example App ID 480](https://partner.stea
 
 Prefer numeric room codes for this test. Both should already have our game running when using **Invite Friend**: an accepted invite while it is closed may launch the actual Spacewar application, because we are borrowing its App ID. The overlay may be unavailable for direct launches; code-based joining is the fallback. Accepted invites update an already open connection page without choosing a class or switching an active match automatically.
 
-Do not upload/distribute App ID 480 as this game's public Steam/itch identity. Real two-device P2P replication and separate-home reachability still require a friend test; local checks cannot prove them. Guest internet play/login/saves are not implemented yet—see [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md). Guest play will not require Steam, and cross-play need not be supported.
+A public GitHub **experimental test download** is now authorized; the launcher's "Private" name refers to the development/friends-only mode, not the ZIP's visibility. Do not represent App ID 480 as this game's production Steam/itch identity. Real two-device P2P replication and separate-home reachability still require a friend test; local checks cannot prove them. Guest internet play/login/saves are not implemented yet—see [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md). Guest play will not require Steam, and cross-play need not be supported.
 
 ## Before production Steam distribution (later)
 
@@ -40,13 +40,13 @@ SteamNetworkingSockets P2P routes through Steam's networking/relay infrastructur
 
 Use **Tools > Tower Defense > Build Versioned Windows Player**. A completed build packages the executable, Steam native runtime, Unity runtime/data, and build information, then updates the existing repository shortcut. Earlier builds are retained.
 
-The release publisher refuses a Steam build with App ID **0** or Valve's test ID **480**. The development build includes the private launcher and a short test readme, and remains usable for private Steam or LAN tests with zero configured. The public GitHub latest download remains `v0.1` until a new version passes its production App ID and multiplayer checks. Publishing a GitHub ZIP is not the same as uploading Steam depots. Production builds must omit the development private mode/launcher and use the real App ID.
+Normal production publication refuses Steam App ID **0** or Valve's test ID **480**. With the owner's explicit authorization, `Tools/PublishBuild.ps1 -SteamTestPrerelease` can instead publish a public **experimental prerelease** with the test launcher available; it cannot mark this as the latest stable release. The development build includes the launcher/test readme and remains usable for Steam or LAN tests with zero configured. Stable `v0.1` remains intact. Publishing a GitHub ZIP is not the same as uploading Steam depots or verifying remote multiplayer. Production builds must omit the development private mode/launcher and use the real App ID.
 
 Steam depot uploads must include the complete playable build and correctly configured executable/depots. Do not upload development-only `steam_appid.txt` files or Valve's sample identity as the game's production configuration. The runtime uses a process-local App ID hint for direct development launches; Steam ownership/configuration still has to be valid.
 
 Steamworks.NET generates a local `steam_appid.txt` containing its sample ID when importing in Unity. This generated file is ignored by Git, and the ZIP packager now explicitly excludes it. The game's ordinary flow refuses 0/480 before initializing Steam; private mode is an explicit development override. Configure `SteamSettings` for production, not the generated sample file.
 
-## Private SDK diagnostic (not a public release)
+## SDK diagnostic (not a multiplayer acceptance test)
 
 With Steam running, the development build has an explicit opt-in diagnostic:
 
@@ -58,7 +58,7 @@ This uses **Valve's example App ID 480 only for the private diagnostic**, create
 
 Use the current executable path from `Builds/latest-build.json`, not necessarily the older example path above. The unset-App-ID preview also accepts `-td-steam-config-test` instead: it verifies a recoverable ordinary-mode setup error and no native initialization. `-td-steam-playtest-check` exercises the real private-mode menu, SDK, lobby, native P2P listen/NGO host, copied code, leave and fresh rehost with swapped classes, then exits. Its pass marker does not prove a second peer. Neither diagnostic sends friend invitations/messages. Normal `-td-steam-playtest` is the playable mode and does not run these diagnostics or auto-exit.
 
-## Required gate before merging and publishing
+## Required gate before merging and production publishing
 
 - For private networking verification, both accounts use explicit development App ID 480 mode; production publishing separately requires the real App ID and valid account entitlements.
 - Host/join through both a numeric code and a Steam invite; same-version checks and invalid/full rooms behave correctly.
