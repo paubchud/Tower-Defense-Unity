@@ -7,6 +7,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace TowerDefense.Diagnostics
 {
@@ -25,6 +26,7 @@ namespace TowerDefense.Diagnostics
             bool host = Array.IndexOf(args, "-td-smoke-host") >= 0;
             bool client = Array.IndexOf(args, "-td-smoke-client") >= 0;
             bool reject = Array.IndexOf(args, "-td-expect-reject") >= 0;
+            bool online = Array.IndexOf(args, "-td-relay") >= 0;
             if (!host && !client) yield break;
             if (active) { Destroy(gameObject); yield break; }
             active = true;
@@ -39,11 +41,13 @@ namespace TowerDefense.Diagnostics
                 Capture(System.IO.Path.Combine(captureDirectory, host ? "menu-host.png" : "menu-client.png"));
                 yield return new WaitForSecondsRealtime(1);
             }
-            session.Connect(host, host ? "warrior" : "wizard", "127.0.0.1", 7779);
+            string codeFile = Argument(args, "-td-code-file");
+            if (online) yield return ConnectThroughOnlineUi(host, host ? "warrior" : "wizard", codeFile, string.Empty, captureDirectory);
+            else session.Connect(host, host ? "warrior" : "wizard", "127.0.0.1", 7779);
             double deadline = Time.realtimeSinceStartupAsDouble + 45;
             if (reject)
             {
-                while (Time.realtimeSinceStartupAsDouble < deadline && !session.Status.Contains("full")) yield return null;
+                while (Time.realtimeSinceStartupAsDouble < deadline && session.Connecting) yield return null;
                 bool passed = session.Status.Contains("full") && session.LocalHero == null;
                 Debug.Log(passed ? "TD_REJECTION_PASS" : "TD_REJECTION_FAIL " + session.Status);
                 Application.Quit(passed ? 0 : 1);
@@ -52,6 +56,13 @@ namespace TowerDefense.Diagnostics
             while ((session.LocalHero == null || session.LocalHero.Definition == null) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
             var hero = session.LocalHero;
             if (hero == null) { Fail("No local player."); yield break; }
+            if (online && host)
+            {
+                yield return new WaitForSecondsRealtime(0.3f);
+                Click("COPY ROOM CODE");
+                if (GUIUtility.systemCopyBuffer != session.JoinCode) { Fail("Copy room code did not copy the current code."); yield break; }
+                if (!string.IsNullOrEmpty(captureDirectory)) Capture(System.IO.Path.Combine(captureDirectory, "online-lobby-host.png"));
+            }
             hero.SetReadyRpc(true);
             while (!hero.Running.Value && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
             if (!hero.Running.Value) { Fail("Both players did not ready up."); yield break; }
@@ -97,6 +108,7 @@ namespace TowerDefense.Diagnostics
                 if (session.Heroes.Count != 1 || hero.Running.Value) { Fail("Disconnect did not restore the lobby."); yield break; }
                 Debug.Log("TD_DISCONNECT_PASS");
             }
+            string oldCode = session.JoinCode;
             session.Leave();
             deadline = Time.realtimeSinceStartupAsDouble + 15;
             while ((SceneManager.GetActiveScene().name != "MainMenu" || session.Manager.ShutdownInProgress) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
@@ -104,7 +116,8 @@ namespace TowerDefense.Diagnostics
             if (SceneManager.GetActiveScene().name != "MainMenu" || session.Heroes.Count != 0)
             { Fail("Leave did not clean up the arena."); yield break; }
             // Swap the classes to catch stale loadout state after leaving and starting a new session.
-            session.Connect(host, host ? "wizard" : "warrior", "127.0.0.1", 7779);
+            if (online) yield return ConnectThroughOnlineUi(host, host ? "wizard" : "warrior", codeFile, oldCode, captureDirectory);
+            else session.Connect(host, host ? "wizard" : "warrior", "127.0.0.1", 7779);
             deadline = Time.realtimeSinceStartupAsDouble + 30;
             while ((session.LocalHero == null || session.LocalHero.Definition == null) && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
             hero = session.LocalHero;
@@ -116,6 +129,56 @@ namespace TowerDefense.Diagnostics
             Debug.Log("TD_REJOIN_PASS");
             yield return new WaitForSecondsRealtime(host ? 2 : 1);
             Application.Quit(0);
+        }
+
+        private static IEnumerator ConnectThroughOnlineUi(bool host, string classId, string codeFile, string oldCode, string captures)
+        {
+            var session = PrototypeSession.Instance;
+            Click("PLAY");
+            yield return null;
+            Click("SELECT", session.Catalog.FindClass(classId).DisplayName);
+            yield return null;
+            string code = string.Empty;
+            if (!host)
+            {
+                double deadline = Time.realtimeSinceStartupAsDouble + 60;
+                while (Time.realtimeSinceStartupAsDouble < deadline)
+                {
+                    if (System.IO.File.Exists(codeFile)) code = System.IO.File.ReadAllText(codeFile).Trim();
+                    if (!string.IsNullOrEmpty(code) && code != oldCode) break;
+                    yield return null;
+                }
+                if (string.IsNullOrEmpty(code) || code == oldCode) { Fail("Host did not publish a fresh Relay code."); yield break; }
+                UnityEngine.Object.FindFirstObjectByType<InputField>().text = code.ToLowerInvariant();
+            }
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, $"online-connect-{(host ? "host" : "client")}-{classId}.png"));
+            Click(host ? "HOST ONLINE" : "JOIN ONLINE");
+            double connectionDeadline = Time.realtimeSinceStartupAsDouble + 60;
+            while ((session.Connecting || (host && string.IsNullOrEmpty(session.JoinCode))) &&
+                   Time.realtimeSinceStartupAsDouble < connectionDeadline)
+            {
+                if (!session.Connecting && !session.Manager.IsListening) break;
+                yield return null;
+            }
+            if (host && !string.IsNullOrEmpty(session.JoinCode))
+            {
+                // Only the shareable code is written; allocation credentials/tokens are never logged.
+                System.IO.File.WriteAllText(codeFile, session.JoinCode);
+                Debug.Log("TD_RELAY_HOST_READY");
+            }
+            else if (host || session.LocalHero == null)
+                Debug.Log("TD_RELAY_CONNECT_RESULT " + session.Status);
+        }
+
+        private static void Click(string name, string parent = null)
+        {
+            foreach (var button in UnityEngine.Object.FindObjectsByType<Button>(FindObjectsSortMode.None))
+            {
+                if (button.name != name || (parent != null && button.transform.parent.name != parent)) continue;
+                button.onClick.Invoke();
+                return;
+            }
+            Fail("Missing UI button: " + name);
         }
 
         private static IEnumerator CheckControls(NetworkHero hero, string captures, bool host)

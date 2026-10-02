@@ -1,16 +1,17 @@
-param([switch]$Capture)
+param([switch]$Capture, [switch]$Relay)
 
 $ErrorActionPreference = 'Stop'
 $prototypeRepo = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$prototypeExe = Join-Path $prototypeRepo 'Builds\Prototype\TowerDefense.exe'
+$prototypeExe = Join-Path $prototypeRepo 'Builds\InternetPrototype\TowerDefense.exe'
 if (-not (Test-Path -LiteralPath $prototypeExe)) { throw 'Build the Windows development player first; see README.md.' }
-$runDirectory = Join-Path $prototypeRepo ('Builds\Validation\Smoke-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+$runDirectory = Join-Path $prototypeRepo ('Builds\Validation\' + $(if ($Relay) { 'Relay-' } else { 'Smoke-' }) + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
 $ownedProcesses = @{}
 
 function Start-SmokePlayer([string]$role, [string]$flags) {
     $log = Join-Path $runDirectory ($role + '.log')
     $arguments = '-screen-fullscreen 0 -screen-width 1440 -screen-height 900 {0} -logFile "{1}"' -f $flags, $log
+    if ($Relay) { $arguments += ' -td-relay -td-code-file "' + (Join-Path $runDirectory 'room-code.txt') + '"' }
     if ($Capture -and $role -ne 'third') { $arguments += ' -td-captures "' + $runDirectory + '"' }
     $process = Start-Process -FilePath $prototypeExe -ArgumentList $arguments -WindowStyle Hidden -PassThru
     $null = $process.Handle
@@ -21,7 +22,7 @@ try {
     Start-SmokePlayer 'host' '-td-smoke-host'
     Start-Sleep -Milliseconds 1500
     Start-SmokePlayer 'client' '-td-smoke-client'
-    $deadline = (Get-Date).AddSeconds(30)
+    $deadline = (Get-Date).AddSeconds($(if ($Relay) { 90 } else { 30 }))
     $hostLog = Join-Path $runDirectory 'host.log'
     do {
         Start-Sleep -Milliseconds 100

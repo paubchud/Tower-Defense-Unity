@@ -146,10 +146,14 @@ namespace TowerDefense.Editor
             AssetDatabase.CreateFolder(parent, Path.GetFileName(folder));
         }
 
-        public static void BuildWindows()
+        public static void BuildWindows() => BuildWindowsAt("Prototype");
+
+        public static void BuildInternetWindows() => BuildWindowsAt("InternetPrototype");
+
+        private static void BuildWindowsAt(string folder)
         {
             Generate();
-            string output = Path.GetFullPath(Path.Combine(Application.dataPath, "../../Builds/Prototype/TowerDefense.exe"));
+            string output = Path.GetFullPath(Path.Combine(Application.dataPath, "../../Builds/" + folder + "/TowerDefense.exe"));
             Directory.CreateDirectory(Path.GetDirectoryName(output));
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {

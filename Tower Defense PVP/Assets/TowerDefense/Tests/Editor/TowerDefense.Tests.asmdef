@@ -1,6 +1,6 @@
 {
   "name": "TowerDefense.Tests",
-  "references": ["TowerDefense.Runtime"],
+  "references": ["TowerDefense.Runtime", "Unity.Netcode.Runtime", "Unity.Networking.Transport", "Unity.Services.Core", "Unity.Services.Multiplayer"],
   "includePlatforms": ["Editor"],
   "optionalUnityReferences": ["TestAssemblies"],
   "defineConstraints": ["UNITY_INCLUDE_TESTS"]

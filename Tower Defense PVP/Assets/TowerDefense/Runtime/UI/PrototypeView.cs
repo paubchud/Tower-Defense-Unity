@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using TowerDefense.Data;
 using TowerDefense.Networking;
@@ -21,6 +22,11 @@ namespace TowerDefense.UI
         private Text readyLabel;
         private Button ready;
         private RectTransform lobby;
+        private Text roomLabel;
+        private Button copyCode;
+        private bool connectionPage;
+        private string observedStatus;
+        private readonly List<Selectable> connectionWidgets = new List<Selectable>();
         private readonly Text[] slotLabels = new Text[3];
         private readonly Image[] slotImages = new Image[3];
         private float nextRefresh;
@@ -94,7 +100,9 @@ namespace TowerDefense.UI
 
         private void NewPage()
         {
-            if (page != null) Destroy(page.gameObject);
+            if (page != null) { page.gameObject.SetActive(false); Destroy(page.gameObject); }
+            connectionPage = false;
+            connectionWidgets.Clear();
             page = Box("Menu page", canvasRoot, Vector2.zero, Vector2.zero, Vector2.one * 0.5f, Ink);
             page.anchorMin = Vector2.zero; page.anchorMax = Vector2.one; page.sizeDelta = Vector2.zero;
             Label(page, "TOWER DEFENSE", new Vector2(0, 270), new Vector2(900, 105), 64, Color.white);
@@ -150,6 +158,45 @@ namespace TowerDefense.UI
         {
             selectedClass = classId;
             NewPage();
+            connectionPage = true;
+            var definition = session.Catalog.FindClass(classId);
+            Label(page, definition.DisplayName + " / " + definition.TechnologyGroup.DisplayName,
+                new Vector2(0, 100), new Vector2(780, 45), 28, definition.AccentColor);
+            Label(page, "ROOM CODE", new Vector2(0, 50), new Vector2(700, 35), 17, Muted);
+            var code = Field(page, string.Empty, new Vector2(0, 5), new Vector2(360, 48));
+            code.characterLimit = 16;
+            var placeholder = Label(code.transform, "Code from your friend", Vector2.zero, new Vector2(336, 44), 20, Muted, TextAnchor.MiddleLeft);
+            code.placeholder = placeholder;
+            Label(page, "Host to get a code, or enter your friend's code to join.", new Vector2(0, -40), new Vector2(800, 35), 17, Muted);
+            connectionWidgets.Add(code);
+            connectionWidgets.Add(ActionButton(page, "HOST ONLINE", new Vector2(-155, -100), new Vector2(270, 58), () =>
+            {
+                _ = session.ConnectOnlineAsync(true, selectedClass);
+                status.text = session.Status;
+            }, true));
+            connectionWidgets.Add(ActionButton(page, "JOIN ONLINE", new Vector2(155, -100), new Vector2(270, 58), () =>
+            {
+                _ = session.ConnectOnlineAsync(false, selectedClass, code.text);
+                status.text = session.Status;
+            }));
+            status = Label(page, "Play together over the internet using a room code. Both players use the same game build.",
+                new Vector2(0, -185), new Vector2(850, 90), 17, Muted);
+            observedStatus = session.Status;
+            connectionWidgets.Add(ActionButton(page, "LAN / THIS PC", new Vector2(150, -275), new Vector2(270, 48), () => BuildLanConnection(classId)));
+            ActionButton(page, "BACK / CANCEL", new Vector2(-150, -275), new Vector2(270, 48), BackFromConnection);
+        }
+
+        private void BackFromConnection()
+        {
+            if (session.Connecting) session.Leave();
+            else BuildClassSelection();
+        }
+
+        private void BuildLanConnection(string classId)
+        {
+            selectedClass = classId;
+            NewPage();
+            connectionPage = true;
             var definition = session.Catalog.FindClass(classId);
             Label(page, definition.DisplayName + " / " + definition.TechnologyGroup.DisplayName,
                 new Vector2(0, 100), new Vector2(780, 45), 28, definition.AccentColor);
@@ -157,6 +204,7 @@ namespace TowerDefense.UI
             Label(page, "Port", new Vector2(205, 45), new Vector2(100, 35), 17, Muted, TextAnchor.MiddleLeft);
             var address = Field(page, "127.0.0.1", new Vector2(-80, 0), new Vector2(290, 48));
             var port = Field(page, "7777", new Vector2(190, 0), new Vector2(170, 48));
+            connectionWidgets.Add(address); connectionWidgets.Add(port);
             void Connect(bool host)
             {
                 if (!ushort.TryParse(port.text, out ushort parsed) || parsed == 0)
@@ -164,11 +212,13 @@ namespace TowerDefense.UI
                 session.Connect(host, selectedClass, address.text, parsed);
                 status.text = session.Status;
             }
-            ActionButton(page, "HOST MATCH", new Vector2(-155, -90), new Vector2(270, 58), () => Connect(true), true);
-            ActionButton(page, "JOIN MATCH", new Vector2(155, -90), new Vector2(270, 58), () => Connect(false));
+            connectionWidgets.Add(ActionButton(page, "HOST LAN", new Vector2(-155, -90), new Vector2(270, 58), () => Connect(true), true));
+            connectionWidgets.Add(ActionButton(page, "JOIN LAN", new Vector2(155, -90), new Vector2(270, 58), () => Connect(false)));
             status = Label(page, "For two copies on this PC, use 127.0.0.1. On a LAN, enter the host PC's address.",
                 new Vector2(0, -175), new Vector2(830, 70), 17, Muted);
-            ActionButton(page, "BACK", new Vector2(0, -265), new Vector2(240, 48), BuildClassSelection);
+            observedStatus = session.Status;
+            ActionButton(page, "BACK / CANCEL", new Vector2(-150, -265), new Vector2(270, 48), BackFromConnection);
+            connectionWidgets.Add(ActionButton(page, "ONLINE", new Vector2(150, -265), new Vector2(270, 48), () => BuildConnection(classId)));
         }
 
         private void BuildArenaHud()
@@ -188,8 +238,9 @@ namespace TowerDefense.UI
             var help = Rect("Controls", canvasRoot, new Vector2(0, 22), new Vector2(1360, 30), new Vector2(0.5f, 0));
             Label(help, "WASD move  |  Right-drag orbit  |  Wheel hotbar  |  B shop  U upgrades  T troops  I equipment  |  Esc pause",
                 Vector2.zero, new Vector2(1360, 30), 16, Color.white);
-            lobby = Box("Ready lobby", canvasRoot, Vector2.zero, new Vector2(590, 295), Vector2.one * 0.5f, Panel);
-            Label(lobby, "YOUR ARENA", new Vector2(0, 105), new Vector2(540, 45), 30, Gold);
+            lobby = Box("Ready lobby", canvasRoot, Vector2.zero, new Vector2(590, 375), Vector2.one * 0.5f, Panel);
+            Label(lobby, "YOUR ARENA", new Vector2(0, 145), new Vector2(540, 45), 30, Gold);
+            roomLabel = Label(lobby, string.Empty, new Vector2(0, 100), new Vector2(540, 40), 24, Gold);
             roster = Label(lobby, "Waiting for players...", new Vector2(0, 30), new Vector2(530, 90), 20, Color.white);
             ready = ActionButton(lobby, "READY", new Vector2(0, -68), new Vector2(280, 48), () =>
             {
@@ -197,7 +248,13 @@ namespace TowerDefense.UI
                 if (hero != null) hero.SetReadyRpc(!hero.Ready.Value);
             }, true);
             readyLabel = ready.GetComponentInChildren<Text>();
-            status = Label(lobby, string.Empty, new Vector2(0, -120), new Vector2(550, 35), 15, Muted);
+            copyCode = ActionButton(lobby, "COPY ROOM CODE", new Vector2(0, -120), new Vector2(280, 38), CopyRoomCode);
+            status = Label(lobby, string.Empty, new Vector2(0, -165), new Vector2(550, 40), 15, Muted);
+        }
+
+        private void CopyRoomCode()
+        {
+            if (!string.IsNullOrEmpty(session.JoinCode)) GUIUtility.systemCopyBuffer = session.JoinCode;
         }
 
         private void OnPanelRequested(string name)
@@ -226,7 +283,7 @@ namespace TowerDefense.UI
                 text = description.ToString();
             }
             else if (name == "Pause")
-                text = "The multiplayer arena keeps running while this menu is open.\n\nWASD: move\nRight-click drag: orbit around your hero\nMouse wheel: select a hotbar item";
+                text = (session.Online ? "Room code: " + session.JoinCode + "\n\n" : string.Empty) + "The multiplayer arena keeps running while this menu is open.\n\nWASD: move\nRight-click drag: orbit around your hero\nMouse wheel: select a hotbar item";
             else if (name == "Shop") text = "No stock available yet.\n\nYour match shop will trade items and materials for your side.";
             else if (name == "Upgrades") text = "No upgrades available yet.\n\nUnit upgrades spend match XP. Hero growth uses match gold.";
             else text = "No troops available yet.\n\nSent units will attack the opposing castle along its lane.";
@@ -246,14 +303,23 @@ namespace TowerDefense.UI
 
         private void Update()
         {
-            if (!MatchView || session == null || Time.unscaledTime < nextRefresh) return;
+            if (session == null || Time.unscaledTime < nextRefresh) return;
             nextRefresh = Time.unscaledTime + 0.15f;
+            if (!MatchView)
+            {
+                if (!connectionPage) return;
+                foreach (var widget in connectionWidgets) widget.interactable = session.CanConnect;
+                if (session.Status != observedStatus) { observedStatus = session.Status; status.text = session.Status; }
+                return;
+            }
             var hero = session.LocalHero;
             bool running = hero != null && hero.Running.Value;
             lobby.gameObject.SetActive(!running);
             ready.interactable = hero != null && hero.Definition != null && session.Manager.IsListening;
             readyLabel.text = hero != null && hero.Ready.Value ? "UNREADY" : "READY";
             status.text = session.Status;
+            roomLabel.text = session.Online ? (string.IsNullOrEmpty(session.JoinCode) ? "Connecting online..." : "ROOM CODE: " + session.JoinCode) : "LOCAL NETWORK MATCH";
+            copyCode.gameObject.SetActive(session.Online && session.Manager.IsHost && !string.IsNullOrEmpty(session.JoinCode));
             session.Controls.BlockGameplay = modal != null || !running;
             var players = new StringBuilder();
             foreach (var player in session.Heroes)
