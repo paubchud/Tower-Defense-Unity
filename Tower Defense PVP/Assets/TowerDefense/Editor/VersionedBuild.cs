@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -105,18 +106,21 @@ namespace TowerDefense.Editor
             string temporaryShortcut = Path.Combine(buildRoot, ".launcher-" + id + ".lnk");
             string manifest = Path.Combine(buildRoot, "latest-build.json");
             string manifestBackup = Path.Combine(buildRoot, ".previous-manifest-" + id + ".tmp");
+            string launcher = Path.Combine(repository, "TowerDefense.exe.lnk");
             try
             {
                 CreateArchive(directory, temporaryArchive);
                 File.Move(temporaryArchive, archive);
                 File.WriteAllText(temporaryManifest, json);
-                (writeShortcut ?? WriteWindowsShortcut)(temporaryShortcut, executable, version);
+                // Update an existing shortcut, but respect an owner's choice to remove it.
+                bool updateLauncher = File.Exists(launcher);
+                if (updateLauncher) (writeShortcut ?? WriteWindowsShortcut)(temporaryShortcut, executable, version);
                 bool hadManifest = File.Exists(manifest);
                 if (hadManifest) File.Replace(temporaryManifest, manifest, manifestBackup);
                 else File.Move(temporaryManifest, manifest);
                 try
                 {
-                    ReplaceFile(temporaryShortcut, Path.Combine(repository, "TowerDefense.exe.lnk"));
+                    if (updateLauncher && File.Exists(launcher)) ReplaceFile(temporaryShortcut, launcher);
                 }
                 catch
                 {
@@ -131,7 +135,72 @@ namespace TowerDefense.Editor
                 foreach (string temporary in new[] { temporaryArchive, temporaryManifest, temporaryShortcut, manifestBackup })
                     if (File.Exists(temporary)) File.Delete(temporary);
             }
+            // Prune only after the ZIP, manifest and any existing launcher are promoted successfully.
+            // A locked older game must not invalidate the new, working publication.
+            try { RemoveOlderBuilds(repository, directory); }
+            catch (Exception error) { UnityEngine.Debug.LogWarning("Older build cleanup skipped: " + error.Message); }
             UnityEngine.Debug.Log("TD_PUBLISH_PASS v" + version + " " + archive);
+        }
+
+        public static void RemoveOlderBuilds(string repository, string currentDirectory)
+        {
+            string buildRoot = Path.Combine(Path.GetFullPath(repository), "Builds");
+            currentDirectory = Path.GetFullPath(currentDirectory);
+            if (!string.Equals(Path.GetDirectoryName(currentDirectory), buildRoot, StringComparison.OrdinalIgnoreCase)
+                || !IsBuildDirectoryName(Path.GetFileName(currentDirectory)))
+                throw new ArgumentException("The current build must be a named build directly inside Builds.");
+            if ((File.GetAttributes(buildRoot) & FileAttributes.ReparsePoint) != 0
+                || (File.GetAttributes(currentDirectory) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("Do not clean through a linked Builds/current directory.");
+            string currentArchive = currentDirectory + ".zip";
+            string manifest = Path.Combine(buildRoot, "latest-build.json");
+            var info = File.Exists(manifest) ? JsonUtility.FromJson<BuildInfo>(File.ReadAllText(manifest)) : null;
+            if (info == null
+                || !string.Equals(info.executable, Path.GetFileName(currentDirectory) + "/TowerDefense.exe", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(info.archive, Path.GetFileName(currentArchive), StringComparison.OrdinalIgnoreCase)
+                || !File.Exists(Path.Combine(currentDirectory, "TowerDefense.exe"))
+                || !File.Exists(currentArchive))
+                throw new InvalidOperationException("Only the successfully published current build may remove older builds.");
+
+            foreach (string directory in Directory.GetDirectories(buildRoot))
+                if (IsBuildDirectoryName(Path.GetFileName(directory))
+                    && !string.Equals(directory, currentDirectory, StringComparison.OrdinalIgnoreCase))
+                    RemoveOldArtifact(buildRoot, directory, true);
+            foreach (string archive in Directory.GetFiles(buildRoot, "*.zip"))
+                if ((IsBuildDirectoryName(Path.GetFileNameWithoutExtension(archive))
+                    || Regex.IsMatch(Path.GetFileName(archive), @"\ATowerDefense-Internet-[0-9]{8}\.zip\z"))
+                    && !string.Equals(archive, currentArchive, StringComparison.OrdinalIgnoreCase))
+                    RemoveOldArtifact(buildRoot, archive, false);
+        }
+
+        private static bool IsBuildDirectoryName(string name) => name == "Prototype" || name == "InternetPrototype"
+            || Regex.IsMatch(name, @"\ATowerDefense-(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){1,2}-Windows(-build[1-9][0-9]*)?\z");
+
+        private static void RemoveOldArtifact(string buildRoot, string path, bool directory)
+        {
+            path = Path.GetFullPath(path);
+            // Resolve and check the exact leaf before any recursive deletion. Never delete Builds itself.
+            if (!string.Equals(Path.GetDirectoryName(path), buildRoot, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Cleanup target is outside Builds.");
+            try
+            {
+                var pending = new Stack<string>();
+                pending.Push(path);
+                while (pending.Count > 0)
+                {
+                    string entry = pending.Pop();
+                    var attributes = File.GetAttributes(entry);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0)
+                        throw new IOException("Cleanup will not follow links: " + entry);
+                    if ((attributes & FileAttributes.Directory) != 0)
+                        foreach (string child in Directory.EnumerateFileSystemEntries(entry)) pending.Push(child);
+                }
+                if (directory) Directory.Delete(path, true);
+                else File.Delete(path);
+                UnityEngine.Debug.Log("TD_BUILD_CLEANUP " + path);
+            }
+            catch (IOException error) { UnityEngine.Debug.LogWarning("Older build retained: " + error.Message); }
+            catch (UnauthorizedAccessException error) { UnityEngine.Debug.LogWarning("Older build retained: " + error.Message); }
         }
 
         private static void ReplaceFile(string source, string destination)

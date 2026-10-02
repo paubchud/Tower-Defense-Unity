@@ -12,7 +12,11 @@ namespace TowerDefense.Tests
         private string repository;
 
         [SetUp]
-        public void SetUp() => repository = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "TowerDefense-BuildTest-" + Guid.NewGuid().ToString("N"))).FullName;
+        public void SetUp()
+        {
+            repository = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "TowerDefense-BuildTest-" + Guid.NewGuid().ToString("N"))).FullName;
+            File.WriteAllText(Path.Combine(repository, "TowerDefense.exe.lnk"), "old launcher");
+        }
 
         [TearDown]
         public void TearDown()
@@ -120,5 +124,79 @@ namespace TowerDefense.Tests
             Assert.That(File.ReadAllText(manifest), Is.EqualTo("old manifest"));
             Assert.That(Directory.GetFiles(Path.Combine(repository, "Builds"), ".*"), Is.Empty);
         }
+
+        [Test]
+        public void SuccessfulPublicationKeepsOnlyTheCurrentBuildAndPreservesOtherFiles()
+        {
+            string previous = CreateFixtureBuild("0.1");
+            VersionedBuild.Publish(repository, previous, "0.1", WriteFixtureShortcut);
+            string buildRoot = Path.Combine(repository, "Builds");
+            string validation = Directory.CreateDirectory(Path.Combine(buildRoot, "Validation")).FullName;
+            File.WriteAllText(Path.Combine(validation, "test.log"), "keep evidence");
+            File.WriteAllText(Path.Combine(buildRoot, "personal.zip"), "not a generated build");
+            Directory.CreateDirectory(Path.Combine(buildRoot, "InternetPrototype"));
+            File.WriteAllText(Path.Combine(buildRoot, "TowerDefense-Internet-20261001.zip"), "legacy generated ZIP");
+            string current = CreateFixtureBuild("0.2");
+            VersionedBuild.Publish(repository, current, "0.2", WriteFixtureShortcut);
+            Assert.That(Directory.Exists(previous), Is.False);
+            Assert.That(File.Exists(previous + ".zip"), Is.False);
+            Assert.That(Directory.Exists(Path.Combine(buildRoot, "InternetPrototype")), Is.False);
+            Assert.That(File.Exists(Path.Combine(buildRoot, "TowerDefense-Internet-20261001.zip")), Is.False);
+            Assert.That(File.Exists(Path.Combine(current, "TowerDefense.exe")), Is.True);
+            Assert.That(File.Exists(current + ".zip"), Is.True);
+            Assert.That(File.ReadAllText(Path.Combine(validation, "test.log")), Is.EqualTo("keep evidence"));
+            Assert.That(File.Exists(Path.Combine(buildRoot, "personal.zip")), Is.True);
+            Assert.That(File.ReadAllText(Path.Combine(repository, "TowerDefense.exe.lnk")), Is.EqualTo(Path.Combine(current, "TowerDefense.exe")));
+        }
+
+        [Test]
+        public void FailedNewPublicationDoesNotRemoveTheWorkingBuild()
+        {
+            string previous = CreateFixtureBuild("0.1");
+            VersionedBuild.Publish(repository, previous, "0.1", WriteFixtureShortcut);
+            string current = CreateFixtureBuild("0.2");
+            Assert.Throws<IOException>(() => VersionedBuild.Publish(repository, current, "0.2",
+                (_, __, ___) => throw new IOException("fixture failure")));
+            Assert.That(File.Exists(Path.Combine(previous, "TowerDefense.exe")), Is.True);
+            Assert.That(File.Exists(previous + ".zip"), Is.True);
+            Assert.That(File.ReadAllText(Path.Combine(repository, "TowerDefense.exe.lnk")), Is.EqualTo(Path.Combine(previous, "TowerDefense.exe")));
+        }
+
+        [Test]
+        public void UnpublishedOrExternalCurrentDirectoryCannotTriggerCleanup()
+        {
+            string previous = CreateFixtureBuild("0.1");
+            VersionedBuild.Publish(repository, previous, "0.1", WriteFixtureShortcut);
+            string unpublished = CreateFixtureBuild("0.2");
+            Assert.Throws<InvalidOperationException>(() => VersionedBuild.RemoveOlderBuilds(repository, unpublished));
+            Assert.Throws<ArgumentException>(() => VersionedBuild.RemoveOlderBuilds(repository, repository));
+            Assert.That(File.Exists(previous + ".zip"), Is.True);
+            Assert.That(Directory.Exists(previous), Is.True);
+        }
+
+        [Test]
+        public void RemovedShortcutStaysRemovedAndCleanupStillKeepsTheNewBuild()
+        {
+            string previous = CreateFixtureBuild("0.1");
+            VersionedBuild.Publish(repository, previous, "0.1", WriteFixtureShortcut);
+            File.Delete(Path.Combine(repository, "TowerDefense.exe.lnk"));
+            string current = CreateFixtureBuild("0.2");
+            VersionedBuild.Publish(repository, current, "0.2",
+                (_, __, ___) => Assert.Fail("A removed shortcut must not be recreated."));
+            Assert.That(File.Exists(Path.Combine(repository, "TowerDefense.exe.lnk")), Is.False);
+            Assert.That(Directory.Exists(previous), Is.False);
+            Assert.That(File.Exists(current + ".zip"), Is.True);
+        }
+
+        private string CreateFixtureBuild(string version)
+        {
+            string directory = VersionedBuild.NextDirectory(repository, version);
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "TowerDefense.exe"), "fixture exe");
+            return directory;
+        }
+
+        private static void WriteFixtureShortcut(string temporary, string executable, string version)
+            => File.WriteAllText(temporary, executable);
     }
 }

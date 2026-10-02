@@ -4,7 +4,7 @@ A 3D, hero-controlled 1v1 tower-defense prototype. The first implementation is t
 
 See [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md) for completed changes, test results, release checkpoints, and unfinished work. It is updated with each meaningful increment.
 
-Current source: **0.1.2 experimental Steam playtest** on `codex/public-playtest-download`. The public [v0.1.2 GitHub prerelease download](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2) is published and its full anonymous ZIP download/checksum verified. Explicit development mode uses Valve's test App ID 480 without registering the game yet. Real two-account/device P2P verification remains required. Guest play is planned and the provider/identity boundary is prepared, not a functioning guest backend. The retained stable **v0.1 Unity Relay prototype** is a different, older build.
+Current game source: **0.1.2 experimental Steam playtest**. The owner authorized bringing `main` up to date and removing the completed update branches. The public [v0.1.2 GitHub prerelease download](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2) is published and its full anonymous ZIP download/checksum verified. Explicit development mode uses Valve's test App ID 480 without registering the game yet. Real two-account/device P2P verification remains required; merging source is not multiplayer verification. Guest play is planned and the provider/identity boundary is prepared, not a functioning guest backend. Retained stable **v0.1** is a different, older Unity Relay build.
 
 ## Open and play
 
@@ -14,7 +14,7 @@ Current source: **0.1.2 experimental Steam playtest** on `codex/public-playtest-
 4. Both click **Ready**. Keep the host open and share codes privately. These are friends-only, two-player lobbies using Valve's shared Spacewar identity, not our production App ID. Prefer room codes; both must already be running this game for private-test invitations, or Steam can launch Spacewar instead.
 5. For **LAN / This PC**, two copies on this computer use `127.0.0.1`, port `7777`; on a LAN the joining player uses the host PC's LAN IPv4 address. Both use the same port; allow the game through the private-network firewall if prompted. LAN remains available without Steam. Guest internet/login/saves are future work; EOS is not enabled.
 
-Double-click the repository's **TowerDefense.exe.lnk** shortcut to play the newest successfully packaged Windows build. Alternatively, **Start-Private-Steam-Test.cmd** inside the development build enables private Steam mode directly, without extra menu clicks. The builder automatically updates the same shortcut; old builds stay intact. The released Step 1 executable remains in `Builds/TowerDefense-0.1-Windows/TowerDefense.exe`. Builds/validation are ignored by Git; downloadable game ZIPs are attached to GitHub Releases separately from the source. An experimental App ID 480 prerelease is not our game's production Steam identity; its public download does not change friends-only lobby privacy.
+To launch the current local game, open **Builds/TowerDefense-0.1.2-Windows** and run **Start-Private-Steam-Test.cmd** with Steam signed in. Or open **TowerDefense.exe**, then enable the Steam test mode in the menu. Builds keeps only the newest successful build folder and ZIP, plus validation logs; `Builds/latest-build.json` identifies it after later updates. The owner removed the root shortcut and the builder will not recreate it. Builds remains ignored by Git; complete game ZIPs are attached to GitHub Releases separately from source. An experimental App ID 480 download is not our production Steam identity and does not change friends-only lobby privacy.
 
 ## Send it to a friend
 
@@ -83,7 +83,7 @@ Choose **Tools > Tower Defense > Build Versioned Windows Player**, or run this i
 & 'C:\Program Files\Unity\Hub\Editor\6000.6.3f1\Editor\Unity.exe' -batchmode -nographics -quit -projectPath "$PWD\Tower Defense PVP" -executeMethod TowerDefense.Editor.PrototypeBuilder.BuildVersionedWindows -logFile "$PWD\Tower Defense PVP\Logs\prototype-build.log"
 ```
 
-Close the editor before a command-line Unity run against the same project. The executable can return control to PowerShell before the build is finished; confirm `TD_PUBLISH_PASS` and `TD_BUILD_PASS` in the log. The older `BuildWindows`/`BuildInternetWindows` entry points now use this same versioned workflow. Rebuilding a version creates `-build2`, `-build3`, etc., never replacing the previous build. A successful build packages all playable files (not Unity's debug-backup folder), records `Builds/latest-build.json`, and updates the existing shortcut's target, working directory, and icon. Failed/canceled builds do not redirect it. Older `Prototype`/`InternetPrototype` folders are preserved. Use this build command rather than Unity's generic Build button for versioned packaging/shortcut updates.
+Close the editor before a command-line Unity run against the same project. The executable can return control to PowerShell before the build is finished; confirm `TD_PUBLISH_PASS` and `TD_BUILD_PASS` in the log. The older `BuildWindows`/`BuildInternetWindows` entry points use this same workflow. A rebuild uses an unused versioned path rather than overwriting the currently working folder. Only after packaging, manifest promotion and any existing-shortcut update succeed does the builder remove older generated folders/ZIPs. Failed/canceled builds retain the working version. Validation logs and unrelated files are preserved; linked paths are skipped. Removed shortcuts are not recreated. Use this command rather than Unity's generic Build button for versioned packaging and cleanup.
 
 ### Publish a download on GitHub
 
@@ -99,7 +99,7 @@ Normal production publication still rejects Steam App ID 0/480. For an explicitl
 
 ### Go back to an earlier update
 
-Commits are snapshots of tracked source files. Branches are movable labels for different lines of work; creating/updating a feature branch does not erase previous commits or overwrite another branch. Release tags such as `v0.1` stay fixed at the released source snapshot, and each release keeps its own downloadable Windows ZIP. Generated Unity caches/build folders are not source snapshots; keep old build folders or download the corresponding release ZIP.
+Commits are snapshots of tracked source files. Branches are movable labels for different lines of work; removing a merged branch does not erase commits still reachable from main or release tags. Release tags such as `v0.1` stay fixed at the released source snapshot, and each release keeps its own downloadable Windows ZIP. Only the latest build is kept locally; recover published older games from GitHub Releases, or rebuild an unpublished source checkpoint.
 
 To **play** an older version, open [GitHub Releases](https://github.com/paubchud/Tower-Defense-Unity/releases) and download that version's Windows ZIP. To **continue coding** from an older version, first commit any work you want to keep, then create a new recovery branch rather than resetting/deleting current work:
 
@@ -108,7 +108,7 @@ git fetch origin --tags
 git switch -c codex/recovery-v0.1 v0.1
 ```
 
-`main` stays unchanged while new increments are developed/tested on `codex/...` branches. Publish a new version/tag after an update passes its checks; do not move old release tags, force-push history, or replace old release downloads. If a merged update later needs undoing, a new revert commit can reverse it while retaining the history.
+Use temporary `codex/...` branches while developing future increments. Merge only when authorized, then remove completed branches whose history is preserved in main. The owner explicitly requested the current main catch-up despite remote Steam peer testing still pending. Do not move release tags, force-push history or replace old downloads. A new revert commit can undo a merged update while retaining history.
 
 The development build has opt-in command-line smoke diagnostics: `-td-smoke-host` and `-td-smoke-client` use localhost port **7779**, automatically ready up, move, select items, and check replicated state/camera centering. Virtual input devices exercise the real WASD, orbit, wheel, and five panel bindings, including blocked gameplay while panels are open. They then reset, leave, and rejoin with swapped classes to check cleanup. These diagnostics are inactive during normal play and absent from release gameplay. A third instance with `-td-smoke-client -td-expect-reject`, launched while both players are connected, checks the two-player limit without resetting the accepted players. `-td-captures <existing-directory>` renders the live menu/arena/equipment UI to PNGs, including when hidden test windows skip screen presentation. Each process logs explicit `TD_*_PASS` or `TD_*_FAIL` results before exiting; consult each process's `-logFile` output.
 
@@ -120,4 +120,4 @@ Known rendering warning: the starter URP settings can report stripped, unused de
 
 ## Design and next milestone
 
-See [GAME_DESIGN.md](GAME_DESIGN.md), [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) and [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md). Next: complete two-account/device private Steam verification before merging the networking increment; use a real App ID before production Steam publication. Then Step 2 remains version 0.2: sent units, hero/group-tower combat, match XP/gold, castle victory and timed ghost respawn. Decide its initial rules before wiring those transactions.
+See [GAME_DESIGN.md](GAME_DESIGN.md), [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) and [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md). Next: complete two-account/device Steam verification; the owner-authorized main catch-up does not close that test gate. Use a real App ID before production Steam publication. Then Step 2 remains version 0.2: sent units, hero/group-tower combat, match XP/gold, castle victory and timed ghost respawn. Decide its initial rules before wiring those transactions.

@@ -7,12 +7,33 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 ## Current status
 
 - **Step 1 / version 0.1:** released on GitHub as fixed tag `v0.1`, source checkpoint `881ee16`. [Download/release](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1). Its Windows ZIP passed size/SHA256 verification and standalone regression.
-- **Local launcher:** the existing `TowerDefense.exe.lnk` is now updated automatically by the versioned build command, after successful packaging. Older builds are retained.
+- **Local builds/launcher:** keep only the newest successful build folder and ZIP, plus validation logs. Five old build folders/four old ZIPs were moved to the Recycle Bin. The owner chose to leave the root shortcut removed; the builder respects that choice rather than recreating it.
 - **GitHub recovery:** each published version will have a fixed `v<version>` tag and retained downloadable ZIP. Work stays on separate update branches; commits do not erase earlier snapshots.
 - **Current networking work:** private Steam 0.1.2 on `codex/private-steam-playtest`, with explicit playable App ID 480 development mode and guest-ready provider/identity boundaries. All 47 automated tests, Windows packaging/launcher, native private host/leave/rehost and LAN checks passed. Real two-account/device Steam P2P verification is pending. A real App ID is a later production-distribution requirement, not a blocker for private tests. Released 0.1 still uses Unity Relay.
 - **Public playtest download:** [v0.1.2 experimental prerelease](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2) is published at fixed source `a340482` on `codex/public-playtest-download`. The exact existing ZIP passed repeated LAN checks, GitHub size/SHA256/tag checks and a full anonymous download/checksum check. Stable `v0.1`, main and friends-only lobby behavior are retained.
+- **Source cleanup:** the owner authorized main catch-up and deletion of extra branches after their history is preserved in main. The latest-build-only changes passed 51/51 automated tests; source commit/merge/push and branch deletion are pending. Binaries stay ignored; the ZIP stays in Releases. This explicitly authorized merge does not verify remote Steam P2P.
 - **Guest play:** future requirement restored. Provider/identity separation is implemented; guest internet/login/persistent saves are not. No backend/billing is enabled; EOS remains canceled. See [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md).
 - **Next gameplay release:** 0.2, Step 2's combat and troop sending, after the Steam networking increment is verified, merged, and pushed.
+
+## 2026-10-02 - Latest local build only and main catch-up
+
+Status: local cleanup and automated verification complete; Git main catch-up/branch removal pending. Game remains 0.1.2; no player runtime change, new release or replacement ZIP.
+Working branch: `codex/latest-build-only`, based on `709d40f`. The owner explicitly asked to catch main up and delete/unactivate remaining branches, chose source in main / ZIP in Releases, and chose to leave the root shortcut removed. This supersedes the earlier local old-build/always-shortcut policy and authorizes the current main merge despite real Steam peer testing still pending.
+
+### Changed
+
+- The versioned builder removes older generated build folders/ZIPs only after successful ZIP/manifest/optional existing-launcher promotion. Unknown files and Validation logs remain; cleanup checks immediate absolute targets and refuses filesystem links. Locked/unremovable older output logs a warning instead of invalidating the new build.
+- Failed publication retains the previous working build. A deleted/missing root shortcut is not recreated.
+- Recycled exactly five folders: `Prototype`, `InternetPrototype`, `TowerDefense-0.1-Windows`, `TowerDefense-0.1.1-Windows`, `TowerDefense-0.1.1-Windows-build2`; and their three versioned old ZIPs plus `TowerDefense-Internet-20261001.zip`. They can be restored from Windows Recycle Bin. Latest 0.1.2, manifest and Validation remain untouched.
+- Updated launch/recovery/retention instructions. Preserved fixed tags, published ZIPs and commit history rather than keeping old local builds. Release-log links will point to main instead of a soon-to-be-deleted feature branch.
+
+### Verified / remaining
+
+- 51/51 EditMode tests passed, 0 failed/skipped (`Builds/Validation/latest-build-only-tests-final.xml`), including new successful cleanup, failed-publication protection, unpublished/external-target rejection and removed-shortcut tests.
+- The first restricted Unity runner could not reach licensing IPC; stopped only that owned stalled process, then retried with access to the installed licensing service. Successful runner log: `Tower Defense PVP/Logs/codex-latest-build-only-tests-retry.log`.
+- Builds now contains only `TowerDefense-0.1.2-Windows`, its ZIP, `latest-build.json` and `Validation`. ZIP SHA256 remains `22ebbfc0ebfcfbab353c9317bd20a6a3197e7bc67368e85fd3cfd221787e7939`; root shortcut remains absent by request. No player rebuild was needed for editor-tooling-only changes.
+- Initial branch audit found all existing branch tips on the same source ancestry; check containment in pushed main before deleting their refs. No force-push, reset, release replacement or history deletion is authorized/needed.
+- Real two-account/device Steam P2P remains unverified. Next gameplay milestone is still 0.2 after those checks; no guest backend or billing changed.
 
 ## 2026-10-01 - Public Steam playtest download 0.1.2
 
