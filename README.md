@@ -1,16 +1,16 @@
 # Tower Defense PVP
 
-A 3D, hero-controlled 1v1 tower-defense prototype. The first implementation is the multiplayer foundation, not the complete combat/economy game.
+A 3D, hero-controlled 1v1 tower-defense prototype. Local **0.2.1** adds the first combat slice on `codex/milestone-2-combat`; it is not the complete economy/invasion game or a published download yet.
 
 See [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md) for completed changes, test results, release checkpoints, and unfinished work. It is updated with each meaningful increment.
 
-**Latest owner checkpoint/testing update (2026-10-03):** friend play is owner-reported successful for Windows Steam/EOS and Mac/Windows Steam; EOS Mac/Windows remains unverified. This is basic play feedback, not a complete measured regression pass. The owner now authorizes merging/pushing the completed branch to main at milestone transitions, superseding the source-push pause below; the repository remains public. Milestone 2 development targets 0.2 on a new local update branch. Published releases/tags remain fixed.
+**Latest owner checkpoint/testing update (2026-10-03):** friend play is owner-reported successful for Windows Steam/EOS and Mac/Windows Steam; EOS Mac/Windows remains unverified. This is basic play feedback, not a complete measured regression pass. Main was caught up and pushed at `a008f71` before branching for Milestone 2. The owner authorizes completed-branch main pushes at milestone transitions; the repository remains public. Versions now use `0.<milestone>.<progress>`: 0.2.1, 0.2.2, then 0.3.1 at the next milestone. Published releases/tags remain fixed.
 
 Published experimental **0.1.5** connects the selected EOS guest backend: anonymous Connect Device ID login, TDG code-selected lobbies and an NGO EOS P2P/relay adapter, keeping automatic configured Steam sign-in and explicit guest fallback before the same menu. Local guest profile identity and authenticated EOS Product User ID are separate; no progression/cloud saves are implied. Steam and guest matchmaking remain separate. 92/92 tests and real single-device guest login/cancel/host/leave/fresh-rehost checks passed. Windows/Mac packaging, regression and anonymous-download checks are in the development log; actual guest two-device/home reachability and Mac execution still require testing. Queue/party contracts are foundations only, not enabled modes. See [EOS_SETUP.md](EOS_SETUP.md).
 
-Latest published update: **[0.1.5 Windows/Mac experimental Steam + EOS guest playtest](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.5)** is fixed at `855f4af`; both complete anonymous ZIP downloads/checksums passed. Main remains 0.1.2 until another merge is authorized. Older tags/downloads stay fixed, including 0.1.3 at `c70dd13`; stable **v0.1** is the legacy Unity Relay build. Explicit Steam development testing uses App ID 480, not our production identity.
+Latest published update: **[0.1.5 Windows/Mac experimental Steam + EOS guest playtest](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.5)** is fixed at `855f4af`; both complete anonymous ZIP downloads/checksums passed. Main contains the completed 0.1.5/design checkpoint, not unfinished 0.2.1. Older tags/downloads stay fixed, including 0.1.3 at `c70dd13`; stable **v0.1** is the legacy Unity Relay build. Explicit Steam development testing uses App ID 480, not our production identity.
 
-**Local design update only:** [MULTIPLAYER_FLOW.md](MULTIPLAYER_FLOW.md) specifies planned solo/party queues, 1v1/2v2v2v2/4v4, pre-queue class/build choice, ready/loading gates and reconnect/leaving policy. These are not shipped features. The owner chose to keep GitHub public but stop further source pushes; these local documentation changes are not uploaded. Existing public source/history remains visible, and no visibility/history change has been made.
+**Design, not enabled gameplay:** [MULTIPLAYER_FLOW.md](MULTIPLAYER_FLOW.md) specifies planned solo/party queues, 1v1/2v2v2v2/4v4, pre-queue class/build choice, ready/loading gates and reconnect/leaving policy. This design is included in the main checkpoint; these are not shipped features. No visibility/history change has been made.
 
 **Planned fog milestone:** [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) assigns fog of war to the start of Milestone 4, before invasion. Hidden enemy locations/stats are withheld from ordinary clients; ghosts grant no vision. Life-state/private-data groundwork belongs in Milestones 2-3. Fog, movement prediction and replacement-host recovery are not implemented in 0.1.5; host/checkpoint secrecy limitations remain explicit in [GAME_DESIGN.md](GAME_DESIGN.md) and MULTIPLAYER_FLOW.md.
 
@@ -47,11 +47,12 @@ Provider-namespaced identity can key later versioned saves; Steam, Steam-test an
 | Control | Action |
 | --- | --- |
 | WASD | Move relative to the camera |
+| Hold left mouse | Aim toward the ground cursor and attack with the weapon selected |
 | Hold right mouse + drag | Orbit/tilt around the hero, always keeping the hero centered |
 | Mouse wheel / click a hotbar slot | Select weapon, tool, or empty slot |
 | B | Match shop placeholder |
-| U | Upgrade placeholder |
-| T | Troop-sending placeholder |
+| U | Spend match XP to upgrade future troops |
+| T | Open troop panel and send a Raider |
 | I | Starter equipment and class information |
 | Esc | Open/close pause menu; multiplayer itself does not pause |
 | Menu button | Leave the session and return to class selection via the main menu |
@@ -67,15 +68,17 @@ The host's pause menu includes **Reset to Lobby**. Both players must ready again
 - A small authored-map definition with two straight lane paths, two castles, land markers, resource markers, and open space between sides. Markers do not yet transact or harvest.
 - Server-authoritative movement, class/side assignment, readiness, active hotbar slot, and lobby reset. Only the owning player can submit their movement/selection requests. The host rejects a third connection and resets to the lobby when the opponent leaves.
 - Independent local hero-follow/orbit cameras with scenery obstruction handling.
-- Class -> technology group -> shared tower catalog references, generic energy definitions/pool logic, and per-player starter inventory containers. These are foundations; tower firing, energy-using attacks, mutable loot, and crafting are not implemented yet.
+- Host-owned combat rules, bounded troop sending, XP upgrades for future sends, gold on kills, group-selected starter towers, castle defeat/draw/results, seven-second ghost/respawn, and energy-using sword/staff attacks. Troop visuals reuse a bounded pool and evaluate straight-path positions from spawn time; changed health/spawn/removal data is replicated instead of per-frame troop transforms. Private match economy and energy are owner-readable only. A bounded host-only transaction journal is diagnostic groundwork, not durable recovery or periodic auditing.
 
-Store stock, attacks, sent troops, tower construction, currencies, harvesting, ghost/respawn, theft, progression, and victory/results remain future milestones. Walking across the blockout is a connectivity test, not a finalized invasion rule.
+Store stock, purchased land/tower construction, harvesting/materials, gold spending/hero growth, loot/crafting, theft, progression and fog remain future milestones. Walking across the blockout is not a finalized invasion rule. Ghosts roam their own half and can upgrade troops, but cannot attack/collect/reveal; sending while ghost defaults off pending owner choice. Existing towers continue firing. Disconnect still resets the lobby rather than preserving a match for reconnect; host loss still ends it.
 
 ## Content and code
 
 Content assets are under `Assets/TowerDefense/Content`. `PrototypeCatalog` references classes and `StraightDuel`; each class references its technology group, starter items, and energy definitions. Adding a class does not require a new network message or a duplicate tower list. The current selection screen is laid out for the initial two classes; a paged/scrollable roster is needed before expanding to 25.
 
-Warrior currently has a sword, mail, pickaxe, and a provisional 100-capacity stamina definition. Wizard has a staff, robes, pickaxe, and a provisional 100-capacity mana definition. These editable defaults are not final balance decisions. No gameplay energy spending is connected yet.
+Warrior has a sword, mail, pickaxe and 100 stamina (8 per swing, 10/sec recovery). Wizard has a staff, robes, pickaxe and 100 mana (12 per shot, 8/sec recovery). The staff currently uses a narrow authority-checked instant ray with a cosmetic trace, not a traveling projectile. Attacks target sent troops on your own lane; hero-versus-hero/castle/tower attacks await invasion. These editable defaults are not final balance decisions.
+
+`CombatRules` defines the temporary loop: free Raider send every 1.5 seconds, +5 XP per accepted send, 25 XP for one upgrade, 10 gold per kill to the lane defender, 16 troops per lane, 300 castle HP, and seven-second respawn. Upgrades affect future sends only. Gold accumulates for testing but cannot yet be spent. Ghosts retain economy, regenerate no energy while dead and respawn at home with starting health/energy. Match end stops combat and respawn; host can reset for a fresh rematch.
 
 Map lane endpoints/spawns, plot positions, and resource positions are editable in `StraightDuel`. Runtime geometry currently builds a simple blockout from those positions; it is not the final map-art workflow.
 
@@ -87,7 +90,7 @@ Networking uses Unity [Netcode for GameObjects 2.13.3](https://docs.unity3d.com/
 
 Before opening a fresh checkout, run `powershell -NoProfile -ExecutionPolicy Bypass -File Tools/InstallEosSdk.ps1`. This installs the checksum-pinned official C# SDK/native libraries into an ignored local package; it requires no account credentials to download. Configure `.local/eos-settings.json` locally as described in [EOS_SETUP.md](EOS_SETUP.md). Never put secrets in chat/Git. Downloadable clients necessarily contain extractable, least-privilege game-client credentials; no admin/server credentials may be used. Assets/scenes and their `.meta` files are checked in. **Tools > Tower Defense > Create Missing Prototype Assets** creates missing foundation assets without overwriting authored assets.
 
-Use **Window > General > Test Runner > EditMode** for foundation, online-lifecycle, and build-publication tests (the lifecycle tests use a fake service, with no cloud traffic). Set **Project Settings > Player > Version** to the update number; `0.1` completes Step 1, `0.2` will complete Step 2, and fixes between milestones can use `0.1.1`, etc. The menu shows this version.
+Use **Window > General > Test Runner > EditMode** for combat, foundation, online-lifecycle and build-publication tests (lifecycle tests use a fake service, with no cloud traffic). Set **Project Settings > Player > Version** to `0.<milestone>.<progress>`: the first Milestone 2 increment is `0.2.1`, the next `0.2.2`, and Milestone 3 starts `0.3.1`. Existing historical tags are unchanged. The menu shows this version; starting a milestone does not mean its full gate has passed.
 
 Choose **Tools > Tower Defense > Build Versioned Windows Player**, or run this in PowerShell, adjusting the Unity installation path if necessary:
 
@@ -140,4 +143,4 @@ Known rendering warning: the starter URP settings can report stripped, unused de
 
 ## Design and next milestone
 
-See [GAME_DESIGN.md](GAME_DESIGN.md), [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) and [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md). Next: complete two-account/device Steam verification; the owner-authorized main catch-up does not close that test gate. Use a real App ID before production Steam publication. Then Step 2 remains version 0.2: sent units, hero/group-tower combat, match XP/gold, castle victory and timed ghost respawn. Decide its initial rules before wiring those transactions.
+See [GAME_DESIGN.md](GAME_DESIGN.md), [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) and [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md). Next: verify 0.2.1 combat on real Steam/EOS peers in both roles and finish Mac/Windows EOS testing. LAN automation can use `Tools/ValidatePrototype.ps1 -Combat -Capture`. Tune provisional combat values and complete the Milestone 2 gate before starting 0.3.1. Prediction/latency-loss measurements, fog and host recovery remain explicitly separate work. Use a real App ID before production Steam publication.

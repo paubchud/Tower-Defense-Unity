@@ -2,6 +2,8 @@
 
 Status: working design based on the owner's gameplay description. This document describes the intended game; DEVELOPMENT_PLAN.md specifies the order of implementation. Nothing here implies a feature is already implemented. README.md lists the actual first implementation and its temporary defaults separately from these intended rules.
 
+2026-10-03 superseding version/checkpoint policy: use `0.<milestone>.<progress>` (0.2.1, 0.2.2; Milestone 3 starts 0.3.1). Completed work is merged/pushed to public main when moving milestones, superseding the earlier source-push pause. Main checkpoint `a008f71` preserves completed Milestone 1 and design work; fixed historical tags/downloads are unchanged. Initial combat defaults in README are provisional implementation values, not permanent balance commitments.
+
 ## Core idea
 
 A hero-controlled tower-defense game, starting with 1v1 and planning 2v2v2v2 and 4v4 team modes. Each player controls a class-based hero, defends, sends enemy units and develops an economy. Players buy land, harvest materials, build defenses, and can invade enemy territory to steal resources and fight. Authored map challenges provide additional ways to strengthen a player during a match. Team-mode castle/lane/economy/targeting rules remain to be designed before those modes are enabled.

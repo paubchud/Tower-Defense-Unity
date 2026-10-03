@@ -98,13 +98,17 @@ namespace TowerDefense.Diagnostics
                 Capture(System.IO.Path.Combine(captureDirectory, host ? "arena-host.png" : "arena-client.png"));
             Debug.Log($"TD_SMOKE_PASS role={(host ? "host" : "client")} class={hero.Definition.Id} side={hero.Side.Value} players=2 slot={hero.SelectedSlot.Value} position={hero.transform.position}");
             hero.SmokeInput = null;
+            if (Array.IndexOf(args, "-td-combat") >= 0) yield return CheckCombat(hero, captureDirectory, host);
             yield return CheckControls(hero, captureDirectory, host);
+            if (Array.IndexOf(args, "-td-combat") >= 0) yield return CheckCombatLife(hero, captureDirectory, host);
+            if (Array.IndexOf(args, "-td-combat") >= 0) yield return CheckCombatResult(hero, captureDirectory, host);
             // Give both peers time to finish local input checks before resetting shared state.
             yield return new WaitForSecondsRealtime(3);
             if (host) session.ResetLobby();
             deadline = Time.realtimeSinceStartupAsDouble + 15;
             while (hero.Running.Value && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
-            if (hero.Running.Value || hero.Ready.Value || hero.SelectedSlot.Value != 0)
+            if (hero.Running.Value || hero.Ready.Value || hero.SelectedSlot.Value != 0 || hero.Round.Value != 0 ||
+                hero.Incoming.Count != 0 || hero.Energy.Count != 0 || hero.Economy.Value.XP != 0 || hero.Economy.Value.Gold != 0)
             { Fail("Reset did not clear match state."); yield break; }
             yield return new WaitForSecondsRealtime(0.3f);
             if (Vector3.Distance(hero.transform.position, session.Catalog.TestMap.Lanes[hero.Side.Value].HeroSpawn) > 0.5f)
@@ -142,6 +146,32 @@ namespace TowerDefense.Diagnostics
             Debug.Log("TD_REJOIN_PASS");
             yield return new WaitForSecondsRealtime(host ? 2 : 1);
             Application.Quit(0);
+        }
+
+        private static IEnumerator CheckCombat(NetworkHero hero, string captures, bool host)
+        {
+            var session = PrototypeSession.Instance;
+            hero.RequestSlot(0);
+            yield return new WaitForSecondsRealtime(0.3f);
+            hero.RequestSend();
+            yield return new WaitForSecondsRealtime(1.7f);
+            hero.RequestSend();
+            yield return new WaitForSecondsRealtime(0.5f);
+            if (hero.Economy.Value.XP != 10 || hero.Incoming.Count != 2 || hero.Round.Value == 0 || hero.MatchPlayerId.Value.IsEmpty)
+            { Fail("Combat sends/XP/identity did not replicate."); yield break; }
+            if (!host)
+                foreach (var other in session.Heroes) if (other != hero && (other.Energy.Count != 0 || other.Economy.Value.XP != 0))
+                { Fail("Opponent private balances were replicated."); yield break; }
+            hero.RequestAttack(Vector2.up);
+            yield return new WaitForSecondsRealtime(0.25f);
+            if (hero.Energy.Count != 1 || hero.Energy[0].Current >= hero.Energy[0].Capacity)
+            { Fail("Weapon energy cost was not acknowledged."); yield break; }
+            var ui = UnityEngine.Object.FindFirstObjectByType<TowerDefense.UI.PrototypeView>();
+            ui.OpenPanel("Troops");
+            yield return new WaitForSecondsRealtime(0.25f);
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, host ? "combat-host.png" : "combat-client.png"));
+            ui.ClosePanel();
+            Debug.Log("TD_COMBAT_PASS role=" + (host ? "host" : "client") + " sends=2 xp=10 energy=spent private=owner-only");
         }
 
         private static IEnumerator ConnectThroughOnlineUi(bool host, string classId, string codeFile, string oldCode, string captures)
@@ -312,6 +342,8 @@ namespace TowerDefense.Diagnostics
 
         private static IEnumerator CheckControls(NetworkHero hero, string captures, bool host)
         {
+            hero.RequestSlot(1);
+            yield return new WaitForSecondsRealtime(0.3f);
             // Feed virtual devices through the real named actions rather than calling movement/camera methods.
             var keyboard = InputSystem.AddDevice<Keyboard>("Smoke keyboard");
             var mouse = InputSystem.AddDevice<Mouse>("Smoke mouse");
@@ -370,6 +402,73 @@ namespace TowerDefense.Diagnostics
             InputSystem.RemoveDevice(keyboard);
             InputSystem.RemoveDevice(mouse);
             Debug.Log("TD_CONTROLS_PASS orbit camera-relative-WASD wheel panels input-blocking");
+        }
+
+        private static IEnumerator CheckCombatLife(NetworkHero hero, string captures, bool host)
+        {
+            var session = PrototypeSession.Instance;
+            hero.RequestSlot(0); hero.RequestSend();
+            yield return new WaitForSecondsRealtime(1);
+            if (host)
+            {
+                // Explicit development-only fixture: lower authority health to make the real troop hit kill promptly.
+                // This is not a production RPC or a claim that final combat balance has been tested.
+                foreach (var player in session.Heroes)
+                {
+                    CombatTroop latest = null;
+                    foreach (var troop in session.Combat.Troops)
+                        if (troop.Lane == player.Side.Value && (latest == null || troop.Id > latest.Id)) latest = troop;
+                    if (latest == null) { Fail("No incoming troop for ghost fixture."); yield break; }
+                    session.Combat.Players[player.Side.Value].Health = 1;
+                    player.SmokeTeleport(session.Combat.Position(latest));
+                }
+            }
+            double deadline = Time.realtimeSinceStartupAsDouble + 8;
+            while (hero.Life.Value != HeroLife.Ghost && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            if (hero.Life.Value != HeroLife.Ghost || hero.GrantsVision) { Fail("Troop death/ghost eligibility did not synchronize."); yield break; }
+            int xp = hero.Economy.Value.XP; float energy = hero.Energy[0].Current;
+            hero.RequestAttack(Vector2.up);
+            var start = hero.transform.position; hero.SmokeInput = Vector2.up;
+            yield return new WaitForSecondsRealtime(0.5f); hero.SmokeInput = Vector2.zero;
+            if (hero.Energy[0].Current != energy || Vector3.Distance(start, hero.transform.position) < 0.5f)
+            { Fail("Ghost attack rejection or controllable movement failed."); yield break; }
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, host ? "ghost-host.png" : "ghost-client.png"));
+            deadline = Time.realtimeSinceStartupAsDouble + 10;
+            while (hero.Life.Value == HeroLife.Ghost && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            hero.SmokeInput = null;
+            yield return new WaitForSecondsRealtime(0.25f);
+            if (hero.Life.Value != HeroLife.Alive || hero.Health.Value != hero.Definition.MaxHealth || hero.Economy.Value.XP != xp ||
+                Vector3.Distance(hero.transform.position, session.Catalog.TestMap.Lanes[hero.Side.Value].HeroSpawn) > 0.5f)
+            { Fail("Home respawn did not preserve economy/restore health."); yield break; }
+            Debug.Log("TD_GHOST_PASS death movement attack-rejection no-vision timed-home-respawn economy-preserved development-fixture");
+        }
+
+        private static IEnumerator CheckCombatResult(NetworkHero hero, string captures, bool host)
+        {
+            yield return new WaitForSecondsRealtime(1);
+            var session = PrototypeSession.Instance;
+            if (host)
+            {
+                // Development fixture advances one authoritative troop near a weakened castle.
+                var match = session.Combat;
+                var sender = match.Players[0];
+                if (!match.TrySend(sender.Id, match.Generation, sender.LastSequence + 1, out _))
+                { Fail("Result fixture could not send."); yield break; }
+                var troop = match.Troops[match.Troops.Count - 1];
+                troop.Health = 1000;
+                troop.SpawnAt = match.Time - Vector3.Distance(match.Map.Lanes[1].Entry, match.Map.Lanes[1].Castle) / match.Rules.TroopSpeed + 0.1;
+                match.Castles[1] = 1;
+            }
+            double deadline = Time.realtimeSinceStartupAsDouble + 10;
+            while (hero.Phase.Value != CombatPhase.Finished && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            if (hero.Phase.Value != CombatPhase.Finished || hero.Winner.Value != 0)
+            { Fail("Castle victory/result did not synchronize."); yield break; }
+            yield return new WaitForSecondsRealtime(0.3f);
+            int xp = hero.Economy.Value.XP; hero.RequestSend();
+            yield return new WaitForSecondsRealtime(0.3f);
+            if (hero.Economy.Value.XP != xp) { Fail("Post-result send changed XP."); yield break; }
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, host ? "results-host.png" : "results-client.png"));
+            Debug.Log("TD_RESULT_PASS castle winner post-result-rejection development-fixture");
         }
 
         private static string Argument(string[] args, string key)

@@ -48,6 +48,7 @@ namespace TowerDefense.Editor
                 c.TechnologyGroup = primate; c.BodyColor = new Color(0.58f, 0.32f, 0.22f); c.AccentColor = new Color(0.95f, 0.67f, 0.27f);
                 c.StartingWeapon = sword; c.StartingTool = tool; c.StartingArmor = armor;
                 c.Energies = new[] { new StartingEnergy { Definition = stamina, Capacity = 100, Initial = 100, RecoveryPerSecond = 10 } };
+                c.AttackCosts = new[] { new AttackEnergyCost { EnergyId = "stamina", Amount = 8 } };
             });
             var wizard = Asset<HeroClassDefinition>("Wizard", c =>
             {
@@ -55,6 +56,8 @@ namespace TowerDefense.Editor
                 c.TechnologyGroup = mystic; c.BodyColor = new Color(0.29f, 0.29f, 0.6f); c.AccentColor = new Color(0.4f, 0.75f, 1);
                 c.StartingWeapon = staff; c.StartingTool = tool; c.StartingArmor = robes;
                 c.Energies = new[] { new StartingEnergy { Definition = mana, Capacity = 100, Initial = 100, RecoveryPerSecond = 8 } };
+                c.AttackDamage = 18; c.AttackRange = 10; c.AttackInterval = 0.5f;
+                c.AttackCosts = new[] { new AttackEnergyCost { EnergyId = "mana", Amount = 12 } };
             });
             var map = Asset<MapDefinition>("StraightDuel", m =>
             {
@@ -67,7 +70,8 @@ namespace TowerDefense.Editor
                 m.Plots = new[] { new Vector3(-16, 0, -3), new Vector3(-16, 0, 5), new Vector3(16, 0, -3), new Vector3(16, 0, 5) };
                 m.ResourceNodes = new[] { new Vector3(-19, 0, 12), new Vector3(-19, 0, -12), new Vector3(19, 0, 12), new Vector3(19, 0, -12) };
             });
-            var catalog = Asset<ContentCatalog>("PrototypeCatalog", c => { c.Classes = new[] { warrior, wizard }; c.TestMap = map; c.BaseMaterial = material; });
+            var combat = Asset<CombatRulesDefinition>("CombatRules", c => { });
+            var catalog = Asset<ContentCatalog>("PrototypeCatalog", c => { c.Classes = new[] { warrior, wizard }; c.TestMap = map; c.BaseMaterial = material; c.CombatRules = combat; });
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Root + "/Prefabs/NetworkHero.prefab");
             if (prefab == null)
             {

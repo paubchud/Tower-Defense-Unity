@@ -39,6 +39,9 @@ namespace TowerDefense.Networking
         public EosGuestService GuestService { get; private set; }
         public MatchFormat Format => MatchFormat.Duel; // Eight-player content/map/authority gates must pass before enabling FourTeamDuos.
         public NetworkHero LocalHero => Heroes.Find(hero => hero != null && hero.IsOwner);
+        public CombatMatch Combat { get; private set; }
+        private uint roundGeneration;
+        private double lastCombatTick, nextCombatReplication;
         private UnityTransport transport;
         private SteamP2PTransport steamTransport;
         private EosP2PTransport guestTransport;
@@ -135,6 +138,7 @@ namespace TowerDefense.Networking
             ServiceErrorCode = null;
             LocalAccount = default;
             approved.Clear(); sides.Clear(); teamSeats.Clear(); Heroes.Clear();
+            Combat = null;
             Controls.BlockGameplay = false;
             Manager.NetworkConfig.ConnectionData = Encoding.UTF8.GetBytes("td-game-" + Application.version + "|" + classId);
             return true;
@@ -292,6 +296,7 @@ namespace TowerDefense.Networking
             {
                 // Rejected/unapproved connections must not reset the two accepted players' match.
                 if (!approved.Remove(id)) return;
+                Combat = null;
                 sides.Remove(id);
                 teamSeats.Remove(id);
                 foreach (var hero in Heroes)
@@ -316,16 +321,43 @@ namespace TowerDefense.Networking
         public void TryBeginMatch()
         {
             if (!Manager.IsServer || Heroes.Count != Format.TotalPlayers) return;
+            if (Combat != null) return;
             foreach (var hero in Heroes)
                 if (!hero.IsSpawned || !hero.Ready.Value) return;
+            var classes = new HeroClassDefinition[2];
+            foreach (var hero in Heroes) classes[hero.Side.Value] = hero.Definition;
+            try { Combat = new CombatMatch(Catalog.CombatRules, Catalog.TestMap, classes, ++roundGeneration, Manager.ServerTime.Time); }
+            catch (ArgumentException error) { Status = "Combat content is invalid: " + error.Message; Debug.LogError(Status); return; }
+            lastCombatTick = Manager.ServerTime.Time; nextCombatReplication = 0;
+            foreach (var hero in Heroes) hero.SyncCombat(Combat);
             foreach (var hero in Heroes) hero.Running.Value = true;
-            Status = "Arena open. Explore your side and the opponent's side.";
+            Status = "Match started. Send troops with T, upgrade with U, and hold left mouse to attack.";
             Debug.Log("TD_MATCH_STARTED players=2");
+        }
+
+        private void FixedUpdate()
+        {
+            if (Combat == null || !Manager.IsServer || !Manager.IsListening) return;
+            double now = Manager.ServerTime.Time;
+            double remaining = Math.Min(0.25, Math.Max(0, now - lastCombatTick));
+            lastCombatTick = now;
+            foreach (var hero in Heroes) if (hero != null && hero.IsSpawned) Combat.UpdateHero(hero.Side.Value, hero.transform.position, hero.SelectedSlot.Value);
+            // Bound each simulation step; a stall does not create a single huge physics/combat step.
+            while (remaining > 0.000001)
+            { float step = (float)Math.Min(remaining, 0.05); Combat.Step(step); remaining -= step; }
+            // Death/respawn must affect movement immediately, not at the slower list/economy cadence.
+            foreach (var hero in Heroes) if (hero != null && hero.IsSpawned) hero.SyncLife(Combat);
+            if (now < nextCombatReplication) return;
+            nextCombatReplication = now + 0.1; // Changes only; lane position is evaluated locally from spawn time.
+            foreach (var hero in Heroes) if (hero != null && hero.IsSpawned) hero.SyncCombat(Combat);
+            if (Combat.Phase == CombatPhase.Finished)
+                Status = Combat.Winner < 0 ? "Draw: both castles fell." : "Side " + (Combat.Winner + 1) + " wins! Host can reset for a rematch.";
         }
 
         public void ResetLobby()
         {
             if (!Manager.IsServer) return;
+            Combat = null;
             foreach (var hero in Heroes) if (hero != null && hero.IsSpawned) hero.ResetForLobby();
             Status = "Arena reset. Both players can ready up again.";
         }
@@ -354,6 +386,7 @@ namespace TowerDefense.Networking
         private IEnumerator LeaveRoutine()
         {
             stopping = true;
+            Combat = null;
             connectionAttempt++;
             preparationCancellation?.Cancel();
             OnlineProvider.Leave();

@@ -16,4 +16,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 4206e997d11adea419376d02a5ce9717, type: 2}
   - {fileID: 11400000, guid: 1ab081bb02be7844d9109f305d5565d4, type: 2}
   TestMap: {fileID: 11400000, guid: 3241dd5fc0a65184c84e7ae27946e7da, type: 2}
+  CombatRules: {fileID: 11400000, guid: 60282916d8524ae793d10f6ce9aa4a67, type: 2}
   BaseMaterial: {fileID: 2100000, guid: 6ab1f41a2cb21334d88d90b683be4e07, type: 2}

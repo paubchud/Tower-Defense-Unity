@@ -1,4 +1,4 @@
-param([switch]$Capture, [switch]$Relay, [string]$ExecutablePath)
+param([switch]$Capture, [switch]$Combat, [switch]$Relay, [string]$ExecutablePath)
 
 $ErrorActionPreference = 'Stop'
 if ($Relay) { throw 'This branch uses Steam, not Unity Relay. Use the v0.1 checkout for legacy Relay tests. Steam peer tests need two accounts/devices; see STEAM_SETUP.md.' }
@@ -21,6 +21,7 @@ $ownedProcesses = @{}
 function Start-SmokePlayer([string]$role, [string]$flags) {
     $log = Join-Path $runDirectory ($role + '.log')
     $arguments = '-screen-fullscreen 0 -screen-width 1440 -screen-height 900 {0} -logFile "{1}"' -f $flags, $log
+    if ($Combat -and $role -ne 'third') { $arguments += ' -td-combat' }
     if ($Capture -and $role -ne 'third') { $arguments += ' -td-captures "' + $runDirectory + '"' }
     $process = Start-Process -FilePath $prototypeExe -ArgumentList $arguments -WindowStyle Hidden -PassThru
     $null = $process.Handle
@@ -56,6 +57,7 @@ try {
             @('TD_SMOKE_PASS', 'TD_CONTROLS_PASS', 'TD_RESET_PASS', 'TD_REJOIN_PASS')
         }
         if ($role -eq 'host') { $markers += 'TD_DISCONNECT_PASS' }
+        if ($Combat -and $role -ne 'third') { $markers += @('TD_COMBAT_PASS', 'TD_GHOST_PASS', 'TD_RESULT_PASS') }
         foreach ($marker in $markers) {
             if (-not $log.Contains($marker)) { throw "$role is missing $marker. See $runDirectory." }
         }

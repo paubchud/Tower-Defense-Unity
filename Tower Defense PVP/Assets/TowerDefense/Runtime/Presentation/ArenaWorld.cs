@@ -7,7 +7,11 @@ namespace TowerDefense.Presentation
     {
         public ContentCatalog Catalog;
         private static readonly Color Stone = new Color(0.43f, 0.49f, 0.55f);
-        private void Awake() { if (transform.childCount == 0) Build(); }
+        private void Awake()
+        {
+            if (transform.childCount == 0) Build();
+            if (GetComponent<CombatWorld>() == null) gameObject.AddComponent<CombatWorld>().Catalog = Catalog;
+        }
 
         public void Build()
         {

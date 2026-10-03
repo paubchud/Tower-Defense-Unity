@@ -19,6 +19,10 @@ namespace TowerDefense.UI
         private RectTransform modal;
         private Text status;
         private Text heroLabel;
+        private Text combatLabel, managementText;
+        private string panelName;
+        private CombatPhase observedPhase;
+        private Button managementAction;
         private Text guestStatus;
         private Text roster;
         private Text readyLabel;
@@ -285,6 +289,8 @@ namespace TowerDefense.UI
         {
             var header = Box("Header", canvasRoot, new Vector2(0, -43), new Vector2(1360, 70), new Vector2(0.5f, 1), Panel);
             heroLabel = Label(header, "Entering arena...", new Vector2(-255, 0), new Vector2(770, 54), 22, Color.white, TextAnchor.MiddleLeft);
+            var combatHud = Box("Combat status", canvasRoot, new Vector2(0, -117), new Vector2(1360, 70), new Vector2(0.5f, 1), Panel);
+            combatLabel = Label(combatHud, "Ready up to start combat.", Vector2.zero, new Vector2(1320, 65), 19, Color.white);
             ActionButton(header, "MENU", new Vector2(550, 0), new Vector2(145, 42), session.Leave);
             ActionButton(header, "PAUSE", new Vector2(380, 0), new Vector2(145, 42), () => OpenPanel("Pause"));
             var footer = Rect("Hotbar", canvasRoot, new Vector2(0, 68), new Vector2(630, 64), new Vector2(0.5f, 0));
@@ -296,7 +302,7 @@ namespace TowerDefense.UI
                 slotLabels[i] = button.GetComponentInChildren<Text>(); slotLabels[i].fontSize = 17;
             }
             var help = Rect("Controls", canvasRoot, new Vector2(0, 22), new Vector2(1360, 30), new Vector2(0.5f, 0));
-            Label(help, "WASD move  |  Right-drag orbit  |  Wheel hotbar  |  B shop  U upgrades  T troops  I equipment  |  Esc pause",
+            Label(help, "WASD move  |  Left mouse attack  |  Right-drag orbit  |  Wheel hotbar  |  B shop  U upgrades  T troops  I equipment  |  Esc pause",
                 Vector2.zero, new Vector2(1360, 30), 16, Color.white);
             lobby = Box("Ready lobby", canvasRoot, Vector2.zero, new Vector2(590, 375), Vector2.one * 0.5f, Panel);
             Label(lobby, session.OnlineProvider is SteamOnlineProvider && session.SteamService.PrivatePlaytest ? "PRIVATE STEAM TEST / 480" : "YOUR ARENA",
@@ -329,6 +335,7 @@ namespace TowerDefense.UI
         public void OpenPanel(string name)
         {
             if (modal != null) ClosePanel();
+            panelName = name;
             modal = Box("Management panel", canvasRoot, Vector2.zero, new Vector2(620, 400), Vector2.one * 0.5f, Panel);
             Label(modal, name.ToUpperInvariant(), new Vector2(0, 145), new Vector2(550, 55), 32, Gold);
             string text;
@@ -347,12 +354,17 @@ namespace TowerDefense.UI
             else if (name == "Pause")
                 text = (session.Online ? "Room code: " + session.JoinCode + "\n\n" : string.Empty) + "The multiplayer arena keeps running while this menu is open.\n\nWASD: move\nRight-click drag: orbit around your hero\nMouse wheel: select a hotbar item";
             else if (name == "Shop") text = "No stock available yet.\n\nYour match shop will trade items and materials for your side.";
-            else if (name == "Upgrades") text = "No upgrades available yet.\n\nUnit upgrades spend match XP. Hero growth uses match gold.";
-            else text = "No troops available yet.\n\nSent units will attack the opposing castle along its lane.";
-            Label(modal, text, new Vector2(0, 15), new Vector2(550, 220), 20, Color.white);
-            if (name == "Pause" && session.Manager.IsServer)
+            else if (name == "Results") text = hero == null ? "Match finished." : hero.Winner.Value < 0 ? "DRAW — both castles fell." :
+                hero.Winner.Value == hero.Side.Value ? "VICTORY — the enemy castle fell!" : "DEFEAT — your castle fell.";
+            else text = string.Empty;
+            managementText = Label(modal, text, new Vector2(0, 25), new Vector2(550, 190), 20, Color.white);
+            if (name == "Troops" || name == "Upgrades")
+                managementAction = ActionButton(modal, name == "Troops" ? "SEND RAIDER" : "UPGRADE FUTURE SENDS", new Vector2(0, -85), new Vector2(420, 46), () =>
+                { if (name == "Troops") session.LocalHero?.RequestSend(); else session.LocalHero?.RequestUpgrade(); }, true);
+            if ((name == "Pause" || name == "Results") && session.Manager.IsServer)
                 ActionButton(modal, "RESET TO LOBBY", new Vector2(-140, -145), new Vector2(260, 48), () => { session.ResetLobby(); ClosePanel(); });
-            ActionButton(modal, "CLOSE", new Vector2(name == "Pause" && session.Manager.IsServer ? 140 : 0, -145), new Vector2(260, 48), ClosePanel, true);
+            ActionButton(modal, "CLOSE", new Vector2((name == "Pause" || name == "Results") && session.Manager.IsServer ? 140 : 0, -145), new Vector2(260, 48), ClosePanel, true);
+            RefreshManagement();
             session.Controls.BlockGameplay = true;
         }
 
@@ -360,6 +372,7 @@ namespace TowerDefense.UI
         {
             if (modal != null) Destroy(modal.gameObject);
             modal = null;
+            managementText = null; managementAction = null; panelName = null;
             session.Controls.BlockGameplay = false;
         }
 
@@ -393,7 +406,7 @@ namespace TowerDefense.UI
             roomLabel.text = session.Online ? (string.IsNullOrEmpty(session.JoinCode) ? "Connecting online..." : "ROOM CODE: " + session.JoinCode) : "LOCAL NETWORK MATCH";
             copyCode.gameObject.SetActive(session.Online && session.Manager.IsHost && !string.IsNullOrEmpty(session.JoinCode));
             inviteFriend.gameObject.SetActive(session.Online && session.Manager.IsHost && session.OnlineProvider.SupportsFriendInvites);
-            session.Controls.BlockGameplay = modal != null || !running;
+            session.Controls.BlockGameplay = modal != null || !running || (hero != null && hero.Phase.Value == CombatPhase.Finished);
             var players = new StringBuilder();
             foreach (var player in session.Heroes)
                 if (player.Definition != null)
@@ -401,13 +414,41 @@ namespace TowerDefense.UI
             if (session.Heroes.Count < 2) players.AppendLine("Waiting for opponent...");
             roster.text = players.ToString();
             if (hero == null || hero.Definition == null) return;
+            if (observedPhase != hero.Phase.Value)
+            {
+                observedPhase = hero.Phase.Value;
+                if (observedPhase == CombatPhase.Finished) OpenPanel("Results");
+                else if (panelName == "Results") ClosePanel();
+            }
             heroLabel.text = $"{hero.Definition.DisplayName.ToUpperInvariant()}  /  {hero.Definition.TechnologyGroup.DisplayName}  /  SIDE {hero.Side.Value + 1}";
+            var info = new StringBuilder();
+            info.Append($"HP {hero.Health.Value:0}/{hero.Definition.MaxHealth:0}  |  Gold {hero.Economy.Value.Gold}  |  XP {hero.Economy.Value.XP}  |  Raider level {hero.Economy.Value.TroopLevel}\n");
+            foreach (var pool in hero.Energy) info.Append($"{pool.Id} {pool.Current:0}/{pool.Capacity:0}  |  ");
+            info.Append($"Castle {hero.CastleHealth.Value:0}");
+            foreach (var opponent in session.Heroes) if (opponent != hero) info.Append($"  /  Enemy castle {opponent.CastleHealth.Value:0}");
+            if (hero.Life.Value == HeroLife.Ghost) info.Append($"  |  GHOST: {System.Math.Max(0, hero.RespawnAt.Value - hero.CombatNow):0.0}s — no attack/collection/vision");
+            combatLabel.text = info.ToString();
+            RefreshManagement();
             for (int i = 0; i < slotLabels.Length; i++)
             {
                 slotLabels[i].text = hero.Inventory[i]?.DisplayName ?? "Empty";
                 slotImages[i].color = i == hero.SelectedSlot.Value ? Gold : Panel;
                 slotLabels[i].color = i == hero.SelectedSlot.Value ? Ink : Color.white;
             }
+        }
+
+        private void RefreshManagement()
+        {
+            if (managementText == null || (panelName != "Troops" && panelName != "Upgrades")) return;
+            var hero = session.LocalHero; var rules = session.Catalog.CombatRules;
+            if (hero == null || rules == null) return;
+            bool sending = panelName == "Troops";
+            managementText.text = sending
+                ? $"Raider: {rules.HealthAt(hero.Economy.Value.TroopLevel):0} HP / {rules.CastleDamageAt(hero.Economy.Value.TroopLevel):0} castle damage\nFree send; {rules.SendInterval:0.0}s cooldown; +{rules.SendXP} XP\nLimit: {rules.MaximumTroopsPerLane} per lane\n\n{hero.CombatFeedback}"
+                : $"XP: {hero.Economy.Value.XP} / Cost: {rules.UpgradeXP}\nLevel: {hero.Economy.Value.TroopLevel}/{rules.MaximumUpgrade}\nAdds health and castle damage to FUTURE sends.\n\n{hero.CombatFeedback}";
+            managementAction.interactable = hero.Phase.Value == CombatPhase.Playing && (sending
+                ? hero.Life.Value == HeroLife.Alive || rules.AllowGhostSending
+                : hero.Economy.Value.XP >= rules.UpgradeXP && hero.Economy.Value.TroopLevel < rules.MaximumUpgrade);
         }
 
         private void OnDestroy()

@@ -8,6 +8,7 @@ namespace TowerDefense.Data
         public HeroClassDefinition[] Classes;
         public MapDefinition TestMap;
         public Material BaseMaterial;
+        public CombatRulesDefinition CombatRules;
 
         public HeroClassDefinition FindClass(string id)
         {
