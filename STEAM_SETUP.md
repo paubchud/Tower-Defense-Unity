@@ -1,5 +1,7 @@
 # Steam setup and verification
 
+**Source 0.1.4 startup change:** the new `codex/unified-sign-in` branch checks Steam before the main menu and automatically enters it after a valid configured Steam sign-in. Unavailable/unconfigured Steam shows **Play as Guest**, **Retry Steam**, and the explicit development-only **Enable Private Steam Test (480)** option. Test mode has moved from the class/connection page to startup; the private launcher still opts in explicitly. Local guest profiles and Steam profiles remain separate, and the owner chose separate matchmaking. Guests can enter the main menu/use LAN, but EOS internet rooms are not connected yet. The fixed 0.1.3 downloads below are unchanged and still use their old menu flow; no new release or merge is implied.
+
 Status: version **0.1.2 experimental development playtest**, with an owner-authorized main catch-up and completed-branch cleanup. The [public GitHub prerelease ZIP](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.2) is published; anonymous download and checksum verification passed. Two-account/device Steam P2P is still unverified. You do not need to register your game's App ID for this SDK test. The production App ID remains zero; stable `v0.1` remains the earlier Unity Relay build.
 
 ## Play privately with a friend now

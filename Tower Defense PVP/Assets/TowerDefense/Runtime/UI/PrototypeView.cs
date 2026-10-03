@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using TowerDefense.Core;
 using TowerDefense.Data;
 using TowerDefense.Networking;
 using UnityEngine;
@@ -28,6 +29,8 @@ namespace TowerDefense.UI
         private InputField roomCodeField;
         private string observedInvite;
         private bool connectionPage;
+        private bool signInPage;
+        private StartupSignInState observedSignIn;
         private string observedStatus;
         private readonly List<Selectable> connectionWidgets = new List<Selectable>();
         private readonly Text[] slotLabels = new Text[3];
@@ -60,7 +63,9 @@ namespace TowerDefense.UI
                 eventObject.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
             }
             session.Controls.PanelRequested += OnPanelRequested;
-            if (MatchView) BuildArenaHud(); else BuildMainMenu();
+            if (MatchView) BuildArenaHud();
+            else if (session.SignIn.Ready) BuildMainMenu();
+            else BuildSignIn();
         }
 
         private RectTransform Rect(string name, Transform parent, Vector2 position, Vector2 size, Vector2 anchor)
@@ -105,6 +110,7 @@ namespace TowerDefense.UI
         {
             if (page != null) { page.gameObject.SetActive(false); Destroy(page.gameObject); }
             connectionPage = false;
+            signInPage = false;
             roomCodeField = null;
             connectionWidgets.Clear();
             page = Box("Menu page", canvasRoot, Vector2.zero, Vector2.zero, Vector2.one * 0.5f, Ink);
@@ -117,10 +123,46 @@ namespace TowerDefense.UI
 
         private void BuildMainMenu()
         {
+            if (!session.SignIn.Ready) { BuildSignIn(); return; }
             NewPage();
+            var profile = Label(page, session.SignIn.Account.Provider == "guest" ? "Signed in: Guest (local profile)" :
+                "Signed in: " + session.SignIn.Flow.DisplayName + (session.SignIn.Account.Provider == "steam-test" ? " / Steam development test" : " / Steam"),
+                new Vector2(0, 140), new Vector2(1000, 35), 18, Muted);
+            profile.supportRichText = false;
             ActionButton(page, "PLAY", new Vector2(0, 60), new Vector2(310, 65), BuildClassSelection, true);
             ActionButton(page, "STORE", new Vector2(0, -30), new Vector2(310, 65), BuildStore);
             ActionButton(page, "EXIT", new Vector2(0, -120), new Vector2(310, 65), Exit);
+        }
+
+        private void BuildSignIn()
+        {
+            NewPage();
+            signInPage = true;
+            observedSignIn = session.SignIn.Flow.State;
+            if (observedSignIn == StartupSignInState.CheckingSteam)
+            {
+                Label(page, "CHECKING STEAM...", new Vector2(0, 35), new Vector2(900, 70), 28, Color.white);
+                ActionButton(page, "EXIT", new Vector2(0, -225), new Vector2(280, 48), Exit);
+                return;
+            }
+            Label(page, "CONTINUE AS A GUEST", new Vector2(0, 105), new Vector2(900, 50), 30, Color.white);
+            Label(page, "No account or password required. Your guest profile stays on this device.\nGuest internet matchmaking is not connected yet; LAN testing is available.",
+                new Vector2(0, 35), new Vector2(900, 65), 18, Muted);
+            ActionButton(page, "PLAY AS GUEST", new Vector2(-155, -45), new Vector2(285, 58), () =>
+            {
+                if (session.ContinueAsGuest()) BuildMainMenu();
+                else status.text = session.SignIn.Flow.Status;
+            }, true);
+            ActionButton(page, "RETRY STEAM", new Vector2(155, -45), new Vector2(285, 58), () =>
+            { session.SignIn.RetrySteam(); BuildSignIn(); });
+            status = Label(page, session.SignIn.Flow.Status, new Vector2(0, -150), new Vector2(950, 95), 17, Muted);
+            ActionButton(page, "EXIT", new Vector2(0, -245), new Vector2(280, 48), Exit);
+            if (session.SteamService.PrivatePlaytestAvailable && !session.SteamService.PrivatePlaytest)
+                ActionButton(page, "ENABLE PRIVATE STEAM TEST (480)", new Vector2(0, -315), new Vector2(520, 40), () =>
+                {
+                    if (session.EnablePrivateSteamPlaytest()) { session.SignIn.RetrySteam(); BuildSignIn(); }
+                    else status.text = session.Status;
+                });
         }
 
         private void BuildStore()
@@ -177,34 +219,26 @@ namespace TowerDefense.UI
             code.placeholder = placeholder;
             Label(page, provider.DisplayName + " connection. Host or paste the room code from your friend.", new Vector2(0, -40), new Vector2(900, 35), 17, Muted);
             connectionWidgets.Add(code);
-            connectionWidgets.Add(ActionButton(page, "HOST " + provider.DisplayName.ToUpperInvariant(), new Vector2(-155, -100), new Vector2(270, 58), () =>
+            bool guestUnavailable = provider is UnconfiguredGuestProvider;
+            var hostButton = ActionButton(page, "HOST " + provider.DisplayName.ToUpperInvariant(), new Vector2(-155, -100), new Vector2(270, 58), () =>
             {
                 _ = session.ConnectOnlineAsync(true, selectedClass);
                 status.text = session.Status;
-            }, true));
-            connectionWidgets.Add(ActionButton(page, "JOIN " + provider.DisplayName.ToUpperInvariant(), new Vector2(155, -100), new Vector2(270, 58), () =>
+            }, true);
+            var joinButton = ActionButton(page, "JOIN " + provider.DisplayName.ToUpperInvariant(), new Vector2(155, -100), new Vector2(270, 58), () =>
             {
                 _ = session.ConnectOnlineAsync(false, selectedClass, code.text);
                 status.text = session.Status;
-            }));
+            });
+            hostButton.interactable = joinButton.interactable = !guestUnavailable;
+            if (!guestUnavailable) { connectionWidgets.Add(hostButton); connectionWidgets.Add(joinButton); }
             status = Label(page, provider is SteamOnlineProvider && session.SteamService.PrivatePlaytest
                 ? "PRIVATE DEVELOPMENT TEST / App ID 480. Both players enable this mode, use the same build and separate Steam accounts/devices. Share a numeric code with your friend."
-                : provider.DisplayName + " account + room networking. Use the same build. Guest internet play is planned, not available yet.",
+                : guestUnavailable ? UnconfiguredGuestProvider.SetupMessage : provider.DisplayName + " account + room networking. Use the same build. Steam and guest rooms are separate.",
                 new Vector2(0, -185), new Vector2(850, 90), 17, Muted);
             observedStatus = session.Status;
             connectionWidgets.Add(ActionButton(page, "LAN / THIS PC", new Vector2(150, -275), new Vector2(270, 48), () => BuildLanConnection(classId)));
             ActionButton(page, "BACK / CANCEL", new Vector2(-150, -275), new Vector2(270, 48), BackFromConnection);
-            if (provider is SteamOnlineProvider && session.SteamService.PrivatePlaytestAvailable)
-            {
-                var privateButton = ActionButton(page, session.SteamService.PrivatePlaytest ? "PRIVATE STEAM TEST ENABLED (480)" : "ENABLE PRIVATE STEAM TEST (480)",
-                    new Vector2(0, -325), new Vector2(520, 40), () =>
-                    {
-                        if (session.EnablePrivateSteamPlaytest()) BuildConnection(classId);
-                        else status.text = session.Status;
-                    });
-                privateButton.interactable = !session.SteamService.PrivatePlaytest && session.CanConnect;
-                if (!session.SteamService.PrivatePlaytest) connectionWidgets.Add(privateButton);
-            }
         }
 
         private void BackFromConnection()
@@ -330,6 +364,12 @@ namespace TowerDefense.UI
             nextRefresh = Time.unscaledTime + 0.15f;
             if (!MatchView)
             {
+                if (signInPage)
+                {
+                    if (session.SignIn.Ready) BuildMainMenu();
+                    else if (observedSignIn != session.SignIn.Flow.State) BuildSignIn();
+                    return;
+                }
                 if (!connectionPage) return;
                 foreach (var widget in connectionWidgets) widget.interactable = session.CanConnect;
                 string incoming = session.OnlineProvider.PendingInvite;

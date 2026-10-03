@@ -35,6 +35,7 @@ namespace TowerDefense.Networking
         public IOnlineProvider OnlineProvider { get; private set; }
         public AccountIdentity LocalAccount { get; private set; }
         public SteamLobbyService SteamService { get; private set; }
+        public PlayerSignInService SignIn { get; private set; }
         public NetworkHero LocalHero => Heroes.Find(hero => hero != null && hero.IsOwner);
         private UnityTransport transport;
         private SteamP2PTransport steamTransport;
@@ -72,6 +73,15 @@ namespace TowerDefense.Networking
             Manager.ConnectionApprovalCallback = Approve;
             Manager.OnClientConnectedCallback += Connected;
             Manager.OnClientDisconnectCallback += Disconnected;
+            SignIn = gameObject.AddComponent<PlayerSignInService>();
+            SignIn.Initialize(SteamService);
+        }
+
+        public bool ContinueAsGuest()
+        {
+            if (!CanConnect || !SignIn.ContinueAsGuest()) return false;
+            SetOnlineProvider(new UnconfiguredGuestProvider());
+            return true;
         }
 
         public void SetOnlineProvider(IOnlineProvider provider)

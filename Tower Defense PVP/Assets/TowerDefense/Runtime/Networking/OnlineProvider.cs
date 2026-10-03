@@ -50,4 +50,21 @@ namespace TowerDefense.Networking
         public bool ShowInviteOverlay() => service.ShowInviteOverlay();
         public string DescribeFailure(Exception error) => SteamLobbyService.DescribeFailure(error);
     }
+
+    // Explicitly unavailable, not a fake EOS login/room or a hidden Steam dependency.
+    // Replace this adapter when the EOS SDK, local credentials and peer checks exist.
+    public sealed class UnconfiguredGuestProvider : IOnlineProvider
+    {
+        public const string SetupMessage = "Your local guest profile is ready. EOS guest internet matchmaking is not connected yet; LAN / This PC is available for testing.";
+        public string DisplayName => "Guest";
+        public string PendingInvite => string.Empty;
+        public bool SupportsFriendInvites => false;
+        public event Action HostLost { add { } remove { } }
+        public bool TryNormalizeCode(string input, out string code) { code = string.Empty; return false; }
+        public Task<OnlineConnection> PrepareAsync(bool host, string code)
+            => Task.FromException<OnlineConnection>(new InvalidOperationException(SetupMessage));
+        public void Leave() { }
+        public bool ShowInviteOverlay() => false;
+        public string DescribeFailure(Exception error) => SetupMessage;
+    }
 }

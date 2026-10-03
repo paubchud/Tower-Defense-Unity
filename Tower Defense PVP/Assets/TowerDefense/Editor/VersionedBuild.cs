@@ -132,12 +132,14 @@ namespace TowerDefense.Editor
                     "EXPERIMENTAL STEAM DEVELOPMENT PLAYTEST - Tower Defense v" + version + "\r\n\r\n"
                     + "Sign into Steam. Both friends extract this whole ZIP. Windows: Start-Private-Steam-Test.cmd.\r\n"
                     + "Mac: read MAC_TESTING.md, then open TowerDefense.app or Start-Private-Steam-Test.command.\r\n"
-                    + "Choose a class and click ENABLE PRIVATE STEAM TEST (480) if not already enabled.\r\n"
+                    + "The launcher explicitly enables Steam test mode. A valid Steam sign-in opens the main menu automatically.\r\n"
+                    + "Direct launch: enable PRIVATE STEAM TEST (480) on the startup screen, then choose Play and a class.\r\n"
                     + "Host Steam, copy the numeric room code, and share it privately. Friend uses Join Steam. Both Ready.\r\n"
                     + "Use separate Steam accounts/devices and matching builds. Keep the host game open.\r\n"
                     + "Steam may show Spacewar: this uses Valve's shared example App ID 480, not our production identity.\r\n"
                     + "Both players should already have this game running; an invite can launch Spacewar if it is closed.\r\n"
-                    + "Public experimental download only; not guest play, production Steam distribution, or a completed combat game.\r\n"
+                    + "Guest startup creates a local device profile and permits LAN tests; guest INTERNET matchmaking is not connected yet.\r\n"
+                    + "Experimental development build only; not production Steam distribution or a completed combat game.\r\n"
                     + "Real two-device replication/reachability still needs testing; report host/client logs if it fails.\r\n");
             }
             if (platform == MacOS) File.Copy(Path.Combine(repository, "MAC_TESTING.md"), Path.Combine(directory, "MAC_TESTING.md"));

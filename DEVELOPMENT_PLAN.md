@@ -6,6 +6,8 @@ This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md)
 
 ## Current state
 
+- New source increment **0.1.4**, `codex/unified-sign-in`: one startup Steam check, automatic menu entry after a valid SDK sign-in, explicit guest choice/retry if unavailable, and a versioned device-local guest identity. 75/75 tests, both local packages, Windows guest/automatic-Steam/LAN checks and Mac static validation passed. Owner confirmed separate Steam and guest matchmaking; EOS is newly selected for future guest internet integration, superseding the old cancellation. Portal setup exists, but EOS SDK/credentials/rooms/transport are not enabled. Guest online actions stay disabled; LAN remains. This increment does not complete Step 2, cloud saves, EOS peer verification, Mac runtime, or a new release/main merge. Published 0.1.3 stays fixed.
+
 - Unity project: `Tower Defense PVP`, Unity `6000.6.3f1`, Universal Render Pipeline.
 - Repository contains the Unity project with generated caches, logs, and builds ignored.
 - Step 1 is release version `0.1`. Future completed steps use `0.2`, `0.3`, etc.; intermediate fixes can use patch versions. Use the versioned build commands and keep only the latest successful local folder/ZIP per platform. The owner removed the root shortcut; do not recreate it. Publish complete downloadable ZIPs as GitHub Releases, not tracked binaries in main.

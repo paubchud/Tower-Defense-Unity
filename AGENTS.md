@@ -1,5 +1,7 @@
 # Project progress record
 
+Latest 2026-10-03 owner decision supersedes the earlier EOS cancellation: use one startup flow that automatically signs into valid configured Steam, otherwise offers explicit guest sign-in before the main menu; keep Steam/guest matchmaking separate (no cross-play). EOS is selected for future guest internet work and its portal product/client/deployment exist. Source 0.1.4 on `codex/unified-sign-in` implements startup plus device-local guest profile identity only, not EOS login/rooms/transport or progression saves. Do not imply a local GUID is an EOS credential or a verified online account. Never put client secrets in chat/public Git; do not enable paid billing. Future main merges still need owner authorization.
+
 The Unity project is in `Tower Defense PVP`. Read `README.md`, `DEVELOPMENT_PLAN.md`, and the current section of `DEVELOPMENT_LOG.md` before making project changes.
 
 For every meaningful gameplay, networking, build, tooling, or release increment, update `DEVELOPMENT_LOG.md` in the same source increment:

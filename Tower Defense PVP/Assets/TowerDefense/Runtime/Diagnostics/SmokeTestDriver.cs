@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using TowerDefense.Core;
 using TowerDefense.Networking;
 using TowerDefense.Presentation;
 using UnityEngine;
@@ -44,6 +45,8 @@ namespace TowerDefense.Diagnostics
             DontDestroyOnLoad(gameObject);
             var session = PrototypeSession.Instance;
             yield return null;
+            if (online) yield return EnsureSteamSignIn();
+            else yield return EnsureGuestSignIn();
             var captureDirectory = Argument(args, "-td-captures");
             if (!string.IsNullOrEmpty(captureDirectory))
             {
@@ -205,23 +208,29 @@ namespace TowerDefense.Diagnostics
             // The unset preview must show a recoverable error, never fall back to the sample app.
             var settings = Resources.Load<SteamSettings>("SteamSettings");
             if (settings == null || settings.AppId != 0) { Fail("Configuration diagnostic requires the unset preview App ID."); yield break; }
-            yield return null;
-            Click("PLAY");
-            yield return null;
-            Click("SELECT", "Warrior");
-            yield return null;
-            Click("HOST STEAM");
-            yield return null;
             var session = PrototypeSession.Instance;
-            bool passed = session.Status.Contains("not configured") && session.CanConnect &&
+            yield return new WaitForSecondsRealtime(0.4f);
+            string captures = Argument(args, "-td-captures");
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "startup-guest-choice.png"));
+            bool passed = session.SignIn.Flow.State == StartupSignInState.GuestChoice &&
+                session.SignIn.Flow.Status.Contains("not configured") && session.CanConnect &&
                 !session.Manager.IsListening && session.SteamService.InitializedAppId == 0 &&
                 SceneManager.GetActiveScene().name == "MainMenu";
-            Click("HOST STEAM");
-            yield return null;
-            passed &= session.Status.Contains("not configured") && session.CanConnect;
-            string captures = Argument(args, "-td-captures");
+            Click("RETRY STEAM");
+            yield return new WaitForSecondsRealtime(0.4f);
+            passed &= session.SignIn.Flow.State == StartupSignInState.GuestChoice && session.SteamService.InitializedAppId == 0;
+            yield return EnsureGuestSignIn();
+            passed &= session.SignIn.Ready && session.SignIn.Account.Provider == "guest" &&
+                session.OnlineProvider is UnconfiguredGuestProvider && session.SteamService.InitializedAppId == 0;
+            var profile = session.SignIn.Account;
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "guest-main-menu.png"));
+            Click("PLAY"); yield return null;
+            Click("SELECT", "Warrior"); yield return null;
+            foreach (var button in UnityEngine.Object.FindObjectsByType<Button>(FindObjectsSortMode.None))
+                if (button.name == "HOST GUEST" || button.name == "JOIN GUEST") passed &= !button.interactable;
+            passed &= session.SignIn.Account.Equals(profile) && !session.LocalAccount.IsValid;
             if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "steam-setup-required.png"));
-            Debug.Log(passed ? "TD_STEAM_CONFIG_PASS app=0 no-native-init recoverable-menu retry" : "TD_STEAM_CONFIG_FAIL");
+            Debug.Log(passed ? "TD_STEAM_CONFIG_PASS app=0 no-native-init startup-retry guest-consent stable-local-profile disabled-guest-internet" : "TD_STEAM_CONFIG_FAIL");
             Application.Quit(passed ? 0 : 1);
         }
 
@@ -229,10 +238,10 @@ namespace TowerDefense.Diagnostics
         {
             var session = PrototypeSession.Instance;
             string captures = Argument(args, "-td-captures");
-            yield return null;
+            yield return EnsureSteamSignIn();
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "automatic-steam-main-menu.png"));
             Click("PLAY"); yield return null;
             Click("SELECT", "Warrior"); yield return null;
-            Click("ENABLE PRIVATE STEAM TEST (480)"); yield return null;
             if (!session.SteamService.PrivatePlaytest) { Fail("Private mode menu did not activate."); yield break; }
             if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "private-steam-connect.png"));
             Click("HOST STEAM");
@@ -260,9 +269,34 @@ namespace TowerDefense.Diagnostics
                 session.LocalHero.Definition.Id == "wizard" && !string.IsNullOrEmpty(session.JoinCode) && session.JoinCode != oldCode && session.LocalAccount.Equals(account);
             session.Leave();
             while (!session.CanConnect && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
-            passed &= session.CanConnect && !session.LocalAccount.IsValid;
-            Debug.Log(passed ? "TD_STEAM_PLAYTEST_PASS menu SDK lobby NGO-host P2P-listen code-copy leave fresh-rehost no-second-peer" : "TD_STEAM_PLAYTEST_FAIL");
+            passed &= session.CanConnect && !session.LocalAccount.IsValid && session.SignIn.Ready && session.SignIn.Account.Equals(account);
+            Debug.Log(passed ? "TD_STEAM_PLAYTEST_PASS automatic-startup-sign-in menu SDK lobby NGO-host P2P-listen code-copy leave fresh-rehost retained-profile no-second-peer" : "TD_STEAM_PLAYTEST_FAIL");
             Application.Quit(passed ? 0 : 1);
+        }
+
+        private static IEnumerator EnsureSteamSignIn()
+        {
+            var session = PrototypeSession.Instance;
+            yield return new WaitForSecondsRealtime(0.4f);
+            if (!session.SignIn.Ready)
+            {
+                Click("ENABLE PRIVATE STEAM TEST (480)");
+                yield return new WaitForSecondsRealtime(0.4f);
+            }
+            if (!session.SignIn.Ready || session.SignIn.Account.Provider != "steam-test" && session.SignIn.Account.Provider != "steam")
+                Fail("Startup did not automatically sign in through Steam.");
+        }
+
+        private static IEnumerator EnsureGuestSignIn()
+        {
+            var session = PrototypeSession.Instance;
+            yield return new WaitForSecondsRealtime(0.4f);
+            if (!session.SignIn.Ready)
+            {
+                Click("PLAY AS GUEST");
+                yield return new WaitForSecondsRealtime(0.2f);
+            }
+            if (!session.SignIn.Ready) Fail("Startup guest choice did not unlock the main menu.");
         }
 
         private static void Click(string name, string parent = null)

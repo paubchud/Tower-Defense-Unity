@@ -57,11 +57,24 @@ namespace TowerDefense.Networking
             int launchInvite = Array.IndexOf(args, "+connect_lobby");
             if (launchInvite >= 0 && launchInvite + 1 < args.Length && SteamLobbyCode.TryNormalize(args[launchInvite + 1], out var code)) PendingInvite = code;
             if (Array.IndexOf(args, "-td-steam-playtest") >= 0 && PrivatePlaytestAvailable) EnablePrivatePlaytest();
-            var settings = Resources.Load<SteamSettings>("SteamSettings");
-            if (!Application.isEditor && !Application.isBatchMode && (PrivatePlaytest || (settings != null && settings.AppId != 0)))
+            // The startup sign-in service owns native initialization and the guest fallback.
+        }
+
+        public bool TrySignIn(out AccountIdentity account, out string name, out string failure)
+        {
+            account = default; name = string.Empty; failure = string.Empty;
+            try
             {
-                try { InitializeSteam(); }
-                catch (Exception error) { Debug.LogWarning("TD_STEAM_STARTUP_FAILED type=" + error.GetType().Name); }
+                InitializeSteam();
+                if (!SteamUser.BLoggedOn()) throw new SteamOnlineException("Steam is offline. Sign into Steam and retry, or continue as a guest.");
+                account = Account;
+                name = SteamFriends.GetPersonaName();
+                return account.IsValid;
+            }
+            catch (Exception error)
+            {
+                failure = DescribeFailure(error);
+                return false;
             }
         }
 
