@@ -4,7 +4,7 @@ A 3D, hero-controlled 1v1 tower-defense prototype. The first implementation is t
 
 See [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md) for completed changes, test results, release checkpoints, and unfinished work. It is updated with each meaningful increment.
 
-Current update: **0.1.3 Windows/Mac experimental Steam playtest**, on `codex/macos-playtest`; main remains the owner's caught-up 0.1.2 source until another merge is authorized. See the development log for actual build/publication checks. All prior commits and fixed releases remain. Explicit development mode uses Valve's test App ID 480 without registering the game yet. Real two-account/device P2P verification remains required; Mac packaging checks are not Mac runtime verification. Guest play is planned and the provider/identity boundary is prepared, not a functioning guest backend. Retained stable **v0.1** is a different, older Unity Relay build.
+Current update: **[0.1.3 Windows/Mac experimental Steam playtest](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.3)** is published at fixed source `c70dd13`, on `codex/macos-playtest`; both anonymous ZIP downloads/checksums passed. Main remains the owner's caught-up 0.1.2 source until another merge is authorized. See the development log for actual checks. All prior commits and fixed releases remain. Explicit development mode uses Valve's test App ID 480 without registering the game yet. Real two-account/device P2P verification remains required; Mac packaging checks are not Mac runtime verification. Guest play is planned and the provider/identity boundary is prepared, not a functioning guest backend. Retained stable **v0.1** is a different, older Unity Relay build.
 
 ## Open and play
 
