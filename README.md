@@ -4,11 +4,15 @@ A 3D, hero-controlled 1v1 tower-defense prototype. The first implementation is t
 
 See [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md) for completed changes, test results, release checkpoints, and unfinished work. It is updated with each meaningful increment.
 
+**Latest owner checkpoint/testing update (2026-10-03):** friend play is owner-reported successful for Windows Steam/EOS and Mac/Windows Steam; EOS Mac/Windows remains unverified. This is basic play feedback, not a complete measured regression pass. The owner now authorizes merging/pushing the completed branch to main at milestone transitions, superseding the source-push pause below; the repository remains public. Milestone 2 development targets 0.2 on a new local update branch. Published releases/tags remain fixed.
+
 Published experimental **0.1.5** connects the selected EOS guest backend: anonymous Connect Device ID login, TDG code-selected lobbies and an NGO EOS P2P/relay adapter, keeping automatic configured Steam sign-in and explicit guest fallback before the same menu. Local guest profile identity and authenticated EOS Product User ID are separate; no progression/cloud saves are implied. Steam and guest matchmaking remain separate. 92/92 tests and real single-device guest login/cancel/host/leave/fresh-rehost checks passed. Windows/Mac packaging, regression and anonymous-download checks are in the development log; actual guest two-device/home reachability and Mac execution still require testing. Queue/party contracts are foundations only, not enabled modes. See [EOS_SETUP.md](EOS_SETUP.md).
 
 Latest published update: **[0.1.5 Windows/Mac experimental Steam + EOS guest playtest](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.5)** is fixed at `855f4af`; both complete anonymous ZIP downloads/checksums passed. Main remains 0.1.2 until another merge is authorized. Older tags/downloads stay fixed, including 0.1.3 at `c70dd13`; stable **v0.1** is the legacy Unity Relay build. Explicit Steam development testing uses App ID 480, not our production identity.
 
 **Local design update only:** [MULTIPLAYER_FLOW.md](MULTIPLAYER_FLOW.md) specifies planned solo/party queues, 1v1/2v2v2v2/4v4, pre-queue class/build choice, ready/loading gates and reconnect/leaving policy. These are not shipped features. The owner chose to keep GitHub public but stop further source pushes; these local documentation changes are not uploaded. Existing public source/history remains visible, and no visibility/history change has been made.
+
+**Planned fog milestone:** [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) assigns fog of war to the start of Milestone 4, before invasion. Hidden enemy locations/stats are withheld from ordinary clients; ghosts grant no vision. Life-state/private-data groundwork belongs in Milestones 2-3. Fog, movement prediction and replacement-host recovery are not implemented in 0.1.5; host/checkpoint secrecy limitations remain explicit in [GAME_DESIGN.md](GAME_DESIGN.md) and MULTIPLAYER_FLOW.md.
 
 ## Open and play
 

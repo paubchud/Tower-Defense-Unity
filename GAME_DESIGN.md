@@ -66,6 +66,19 @@ Camera behavior belongs to local presentation and should be separate from hero m
 
 Keep gameplay positions, aim targets, and placement checks in world space so camera adjustments are practical. Moving from an elevated view to a closer behind-the-hero view may need changes to aiming, targeting, obstruction handling, and interaction feedback.
 
+## Fog of war and enemy information
+
+Owner-confirmed direction, 2026-10-03: fog hides enemy hero locations and stats unless they are visible under the match's vision rules. **Ghost scouting does not reveal fog.** Delivery is assigned to the beginning of **Milestone 4, before invasion**, with life-state vision eligibility established during Milestone 2 and private/public data separation maintained during combat/economy work. This is planned, not implemented in 0.1.5.
+
+- The authority computes permitted vision; camera position/orbit and client-submitted visibility claims do not create vision. Being in enemy territory does not automatically reveal their whole side.
+- Ordinary clients receive live enemy locations/stats only while visibility permits them. On concealment stop those updates and remove live representations; on reveal send a fresh permitted snapshot. Previously observed information cannot be erased from a player's memory, but must not continue updating as if visible. Last-seen markers/stats, if chosen, must be clearly stale.
+- **Ghosts are not vision sources.** Death removes the living hero's vision contribution; ghost movement, camera and ghost-only interactions reveal no new enemies or terrain. Independent authorized vision from other eligible sources need not disappear just because its owner is dead. Ghosts can still use their permitted own-side management view; respawn restores the living hero's normal vision eligibility.
+- Apply filtering to network objects, locations/stats, events/action-ledger entries, UI/minimap/tooltips, audiovisual cues and reconnect views. Do not merely turn off enemy renderers while continuing to deliver hidden data. Enemy purchases/resources must not leak through a globally broadcast ledger.
+- Seeing an enemy permits only the selected combat-information fields, not automatically their private inventory, balances or cooldowns. Visibility and damage/target eligibility are separate rules; settle blind attacks/projectile effects before implementation.
+- Player-hosted simulation needs full authoritative state. Ordinary-client filtering cannot conceal that state from a modified host, and readable full-match migration backups on every player would leak fog. Automatic replacement-host recovery must address this tradeoff before it is enabled; do not promise cheat-proof host secrecy, zero-loss recovery or paid infrastructure by default. See MULTIPLAYER_FLOW.md.
+
+Still to choose in Milestone 4: vision radius and terrain occlusion, whether own territory automatically reveals invaders or needs a nearby revealer, eligible tower/unit revealers, team-shared vision, visible stat fields, last-seen behavior and hidden collision/attack feedback. The no-ghost-reveal rule is fixed, not part of those open choices.
+
 ## Hotbar, inventory, and menu shortcuts
 
 - Provide a scrollable inventory hotbar for selecting weapons and other usable items. Working control interpretation: the mouse wheel changes the selected hotbar slot; slot count, wrapping behavior, and optional number-key selection remain undecided.
@@ -202,7 +215,7 @@ Authored challenges can reward players with temporary match strength or resource
 
 ## Death, ghost mode, and respawn
 
-Confirmed rule: dying starts a respawn timer. During that timer, the player controls a roaming ghost and can still buy, sell, and interact with their own side. They cannot attack or pick up more resources. When the timer ends, the hero respawns.
+Confirmed rule: dying starts a respawn timer. During that timer, the player controls a roaming ghost and can still buy, sell, and interact with their own side. They cannot attack, pick up more resources, or reveal fog of war. When the timer ends, the hero respawns.
 
 | Action while a ghost | Rule |
 | --- | --- |
@@ -210,6 +223,7 @@ Confirmed rule: dying starts a respawn timer. During that timer, the player cont
 | Buy, sell, and manage the player's own side | Allowed through available interactions, using normal ownership, cost, and placement checks |
 | Attack or use an ability to deal hero damage | Not allowed |
 | Pick up materials, mine, harvest, or steal resources | Not allowed |
+| Reveal fog through ghost movement, camera or scouting | Not allowed; the ghost grants no vision |
 
 Buying and selling remain normal economic transactions. The collection restriction is not a blanket ban on balance changes: a valid sale can refund currency, and a purchase can spend existing currency/materials. Any future interaction that directly claims newly harvested materials must respect the ghost restriction.
 
@@ -221,6 +235,7 @@ Working implementation defaults, subject to balancing:
 - The hero-centered camera follows the ghost during the timer, then follows the respawned hero. Keep the player's identity, class, side, and match economy separate from the temporary hero body.
 - Existing towers and already sent units continue operating while their owner is a ghost. Treat their actions separately from the dead hero's prohibited attacks.
 - Reject new ghost attack/collection requests and cancel unfinished hero harvesting when death occurs. Repeated damage/death messages must not restart the timer or duplicate rewards.
+- Remove the living hero's vision contribution on death; the ghost grants none. Keep permitted own-side management and independently authorized vision separate from scouting; only a living respawn restores the hero's vision contribution.
 - Show a clear ghost appearance and a countdown, with feedback explaining unavailable actions. Enforce permissions on the server as well as in the UI.
 - End-of-match and rematch cleanup cancel pending respawn timers and ghost interactions.
 
@@ -247,8 +262,8 @@ The first network smoke test proves two players can connect and control their se
 - One own-side selling/refund interaction, with the sellable asset and refund policy chosen before the economy milestone.
 - One basic attack per class, minimal starter inventory/equipment, and selected energy-pool support after class resource rules are chosen.
 - One gold-funded hero improvement after its leveling rule is chosen.
-- Timed hero respawn with a roaming ghost that can manage their own side but cannot attack or collect resources.
-- A minimal invasion with defined combat, return, and resource theft rules.
+- Timed hero respawn with a roaming ghost that can manage their own side but cannot attack, collect resources or reveal fog.
+- Visibility-filtered fog of war, followed by a minimal invasion with defined combat, return, and resource theft rules.
 - Castle destruction, results, and rematch/reset.
 
 The actual Store/unlock economy, full 25-class roster and five tower catalogs, equipment loot/crafting/upgrade content, automation, additional maps, multiple challenge types, ranked play, and visual polish follow this prototype. Their shared data and ownership structures are established in the prototype; their full content is added in stages.
@@ -270,7 +285,7 @@ The actual Store/unlock economy, full 25-class roster and five tower catalogs, e
 2. Separate-device Steam/EOS and Mac verification; queue/party service coordination, readiness/loading deadlines, authority survival, reconnect credentials/state recovery and double-abandonment results; team grace, modest compensation and exact mixed-team leaver policy. Own Steam App ID/distribution, saved-progress recovery and source privacy/public-download arrangement also require decisions. No paid service or ranked reward system is authorized.
 3. Sending costs/cooldowns, XP award timing, unit upgrade scope, and kill reward attribution.
 4. Initial class energy pools/costs/recovery, starter equipment slots and compatibility, first Primate/Mystic towers, gold-funded hero leveling, starting land, plot rules, and material recipes.
-5. Invasion access, damage permissions, theft rules, respawn timer/location, carried-resource/equipment handling, ghost energy recovery, and remaining ghost equipment/crafting/sending permissions. The timed respawn and ghost management/attack/collection rules are confirmed.
+5. Fog vision radius/occlusion, territory detection, eligible revealers/team sharing, visible stats and last-seen behavior; invasion access, damage permissions, theft rules, respawn timer/location, carried-resource/equipment handling, ghost energy recovery, and remaining ghost equipment/crafting/sending permissions. Timed respawn, ghost management/attack/collection rules, and no ghost fog reveal are confirmed. Milestone 4 delivers fog before invasion; player-host/migration secrecy limits must be addressed separately.
 6. Persistent reward and class-unlock rules, the full class roster and remaining group names, tower catalogs, equipment acquisition/crafting/upgrades, and map challenges.
 
 Choose each group before building the milestone that depends on it. Avoid implementing detailed content or permanent reward systems ahead of those decisions.
