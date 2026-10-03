@@ -151,24 +151,37 @@ namespace TowerDefense.Editor
         public static void BuildInternetWindows() => BuildVersionedWindows();
 
         [MenuItem("Tools/Tower Defense/Build Versioned Windows Player")]
-        public static void BuildVersionedWindows()
+        public static void BuildVersionedWindows() => BuildVersionedPlayer(BuildTarget.StandaloneWindows64, VersionedBuild.Windows);
+
+        [MenuItem("Tools/Tower Defense/Build Versioned Mac Player (Universal Mono)")]
+        public static void BuildVersionedMac()
+        {
+            if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, BuildTarget.StandaloneOSX))
+                throw new InvalidOperationException("Install Mac Build Support (Mono) for this Unity editor in Unity Hub.");
+            EditorUserBuildSettings.SetPlatformSettings(BuildPipeline.GetBuildTargetName(BuildTarget.StandaloneOSX), "Architecture", "x64arm64");
+            // macOS IL2CPP requires a Mac/Xcode. The cross-built prototype intentionally uses Mono.
+            PlayerSettings.SetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Standalone, ScriptingImplementation.Mono2x);
+            BuildVersionedPlayer(BuildTarget.StandaloneOSX, VersionedBuild.MacOS);
+        }
+
+        private static void BuildVersionedPlayer(BuildTarget target, string platform)
         {
             string version = PlayerSettings.bundleVersion;
             VersionedBuild.ValidateVersion(version);
             string repository = Path.GetFullPath(Path.Combine(Application.dataPath, "../.."));
-            string directory = VersionedBuild.NextDirectory(repository, version);
+            string directory = VersionedBuild.NextDirectory(repository, version, platform);
             Generate();
-            string output = Path.Combine(directory, "TowerDefense.exe");
+            string output = Path.Combine(directory, platform == VersionedBuild.Windows ? "TowerDefense.exe" : "TowerDefense.app");
             Directory.CreateDirectory(directory);
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
                 scenes = new[] { Root + "/Scenes/MainMenu.unity", Root + "/Scenes/TestArena.unity" },
-                locationPathName = output, target = BuildTarget.StandaloneWindows64,
+                locationPathName = output, target = target,
                 options = BuildOptions.Development
             });
             if (report.summary.result != BuildResult.Succeeded) throw new InvalidOperationException("Prototype build failed: " + report.summary.result);
             // Never change the launcher or latest-build manifest after a failed/canceled build.
-            VersionedBuild.Publish(repository, directory, version);
+            VersionedBuild.Publish(repository, directory, version, platform: platform);
             Debug.Log("TD_BUILD_PASS " + output);
         }
     }

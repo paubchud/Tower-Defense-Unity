@@ -1,4 +1,4 @@
-param([switch]$DryRun, [switch]$SteamTestPrerelease)
+param([switch]$DryRun, [switch]$SteamTestPrerelease, [switch]$IncludeMacOS)
 
 # Explicit release command: local builds never upload themselves or modify main.
 $ErrorActionPreference = 'Stop'
@@ -32,6 +32,17 @@ $notesPath = Join-Path $releaseRepo ('Releases\' + $build.version + '.md')
 if (-not (Test-Path -LiteralPath $notesPath)) { throw "Add release notes at Releases/$($build.version).md first." }
 $archiveSize = (Get-Item -LiteralPath $archive).Length
 $archiveHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+$assets = @([pscustomobject]@{ name = $build.archive; path = $archive; size = $archiveSize; hash = $archiveHash })
+if ($IncludeMacOS) {
+    $macManifest = Join-Path $releaseBuildRoot 'latest-build-macOS.json'
+    if (-not (Test-Path -LiteralPath $macManifest)) { throw 'Create a versioned Mac development build first.' }
+    $mac = Get-Content -LiteralPath $macManifest -Raw | ConvertFrom-Json
+    if ($mac.version -ne $build.version -or $mac.onlineProvider -ne $build.onlineProvider -or $mac.steamAppId -ne $build.steamAppId -or
+        $mac.privateSteamPlaytestAvailable -ne $build.privateSteamPlaytestAvailable) { throw 'Windows and Mac must be matching version/provider/test-mode builds.' }
+    & (Join-Path $PSScriptRoot 'ValidateMacBuild.ps1') -ManifestPath $macManifest
+    $macArchive = Resolve-ReleaseArtifact $mac.archive
+    $assets += [pscustomobject]@{ name = $mac.archive; path = $macArchive; size = (Get-Item -LiteralPath $macArchive).Length; hash = (Get-FileHash -LiteralPath $macArchive -Algorithm SHA256).Hash.ToLowerInvariant() }
+}
 $tag = 'v' + $build.version
 
 function Read-ReleaseGit([string[]]$arguments) {
@@ -47,7 +58,7 @@ if ($remote -notmatch '\A(?:https://github\.com/|git@github\.com:)(?<owner>[A-Za
 $repositoryName = $Matches.owner + '/' + ($Matches.repo -replace '\.git$', '')
 $commit = Read-ReleaseGit -arguments @('rev-parse', 'HEAD')
 Write-Output "Release candidate: $repositoryName / $tag / $commit"
-Write-Output "Archive: $archive ($archiveSize bytes, SHA256 $archiveHash)"
+foreach ($candidate in $assets) { Write-Output "Archive: $($candidate.path) ($($candidate.size) bytes, SHA256 $($candidate.hash))" }
 if ($SteamTestPrerelease) { Write-Output 'Experimental Steam test prerelease: public download, not a production release or the latest stable release.' }
 if ($DryRun) { Write-Output 'Dry run: no authentication, upload, or GitHub changes.'; return }
 if (Read-ReleaseGit -arguments @('status', '--porcelain=v1')) { throw 'Commit the tested changes before publishing. This command does not commit, push, merge, or overwrite releases.' }
@@ -160,15 +171,17 @@ try {
             make_latest = 'false'
         }
     }
-    $asset = @($release.assets | Where-Object { $_.name -eq $build.archive })
-    if ($asset.Count -eq 0) {
-        Write-Output "Streaming $($build.archive) to GitHub."
-        $uploadUrl = ($release.upload_url -replace '\{\?name,label\}$', '') + '?name=' + [System.Uri]::EscapeDataString($build.archive)
-        if (-not $uploadUrl.StartsWith('https://uploads.github.com/repos/' + $repositoryName + '/')) { throw 'Unexpected GitHub upload destination.' }
-        $asset = @(Invoke-ReleaseApi 'POST' $uploadUrl -upload $archive)
-    }
-    if ($asset.Count -ne 1 -or $asset[0].state -ne 'uploaded' -or $asset[0].size -ne $archiveSize -or $asset[0].digest -ne ('sha256:' + $archiveHash)) {
-        throw 'GitHub asset verification failed. The draft is not published; no existing assets were deleted or replaced.'
+    foreach ($candidate in $assets) {
+        $asset = @($release.assets | Where-Object { $_.name -eq $candidate.name })
+        if ($asset.Count -eq 0) {
+            Write-Output "Streaming $($candidate.name) to GitHub."
+            $uploadUrl = ($release.upload_url -replace '\{\?name,label\}$', '') + '?name=' + [System.Uri]::EscapeDataString($candidate.name)
+            if (-not $uploadUrl.StartsWith('https://uploads.github.com/repos/' + $repositoryName + '/')) { throw 'Unexpected GitHub upload destination.' }
+            $asset = @(Invoke-ReleaseApi 'POST' $uploadUrl -upload $candidate.path)
+        }
+        if ($asset.Count -ne 1 -or $asset[0].state -ne 'uploaded' -or $asset[0].size -ne $candidate.size -or $asset[0].digest -ne ('sha256:' + $candidate.hash)) {
+            throw 'GitHub asset verification failed. The draft is not published; no existing assets were deleted or replaced.'
+        }
     }
     $release = Invoke-ReleaseApi 'PATCH' ($api + '/releases/' + $release.id) @{
         draft = $false
@@ -176,8 +189,10 @@ try {
         make_latest = $(if ($SteamTestPrerelease) { 'false' } else { 'true' })
     }
     Write-Output "GitHub release: $($release.html_url)"
-    $publishedAsset = @($release.assets | Where-Object { $_.name -eq $build.archive })
-    Write-Output "Download: $($publishedAsset[0].browser_download_url)"
+    foreach ($candidate in $assets) {
+        $publishedAsset = @($release.assets | Where-Object { $_.name -eq $candidate.name })
+        Write-Output "Download: $($publishedAsset[0].browser_download_url)"
+    }
 } finally {
     $headers.Clear()
     $credentialLines = $null

@@ -16,6 +16,7 @@ namespace TowerDefense.Tests
         {
             repository = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "TowerDefense-BuildTest-" + Guid.NewGuid().ToString("N"))).FullName;
             File.WriteAllText(Path.Combine(repository, "TowerDefense.exe.lnk"), "old launcher");
+            File.WriteAllText(Path.Combine(repository, "MAC_TESTING.md"), "fixture Mac instructions");
         }
 
         [TearDown]
@@ -198,5 +199,103 @@ namespace TowerDefense.Tests
 
         private static void WriteFixtureShortcut(string temporary, string executable, string version)
             => File.WriteAllText(temporary, executable);
+
+        [Test]
+        public void MacAndWindowsPublicationKeepOneLatestBuildPerPlatform()
+        {
+            string windows = CreateFixtureBuild("0.1.3");
+            VersionedBuild.Publish(repository, windows, "0.1.3", WriteFixtureShortcut);
+            string mac = CreateMacFixture("0.1.3");
+            VersionedBuild.Publish(repository, mac, "0.1.3", (_, __, ___) => Assert.Fail("Mac must not update Windows shortcut."), platform: VersionedBuild.MacOS);
+            Assert.That(File.Exists(windows + ".zip"), Is.True);
+            Assert.That(File.ReadAllText(Path.Combine(repository, "TowerDefense.exe.lnk")), Is.EqualTo(Path.Combine(windows, "TowerDefense.exe")));
+            var info = JsonUtility.FromJson<VersionedBuild.BuildInfo>(File.ReadAllText(Path.Combine(repository, "Builds/latest-build-macOS.json")));
+            Assert.That(info.platform, Is.EqualTo("macOS"));
+            Assert.That(info.architecture, Is.EqualTo("x86_64+arm64"));
+            Assert.That(info.executable, Does.EndWith("TowerDefense.app/Contents/MacOS/Tower Defense PVP"));
+            Assert.That(File.Exists(Path.Combine(mac, "MAC_TESTING.md")), Is.True);
+            Assert.That(File.ReadAllText(Path.Combine(mac, "Start-Private-Steam-Test.command")), Does.Contain("-td-steam-playtest"));
+            string nextMac = CreateMacFixture("0.1.4");
+            VersionedBuild.Publish(repository, nextMac, "0.1.4", platform: VersionedBuild.MacOS);
+            Assert.That(Directory.Exists(mac), Is.False);
+            Assert.That(File.Exists(mac + ".zip"), Is.False);
+            Assert.That(File.Exists(windows + ".zip"), Is.True);
+            string nextWindows = CreateFixtureBuild("0.1.4");
+            VersionedBuild.Publish(repository, nextWindows, "0.1.4", WriteFixtureShortcut);
+            Assert.That(File.Exists(windows + ".zip"), Is.False);
+            Assert.That(File.Exists(nextMac + ".zip"), Is.True);
+            Assert.That(File.Exists(nextWindows + ".zip"), Is.True);
+        }
+
+        [Test]
+        public void InvalidMacPackageRetainsPreviousWorkingDownloadsAndManifest()
+        {
+            string previous = CreateMacFixture("0.1.3");
+            VersionedBuild.Publish(repository, previous, "0.1.3", platform: VersionedBuild.MacOS);
+            string manifest = Path.Combine(repository, "Builds/latest-build-macOS.json");
+            string oldManifest = File.ReadAllText(manifest);
+            string broken = CreateMacFixture("0.1.4");
+            File.WriteAllText(Path.Combine(broken, "TowerDefense.app/Contents/MacOS/Tower Defense PVP"), "not a universal executable");
+            Assert.Throws<IOException>(() => VersionedBuild.Publish(repository, broken, "0.1.4", platform: VersionedBuild.MacOS));
+            Assert.That(File.ReadAllText(manifest), Is.EqualTo(oldManifest));
+            Assert.That(Directory.Exists(previous), Is.True);
+            Assert.That(File.Exists(previous + ".zip"), Is.True);
+            Assert.Throws<IOException>(() => VersionedBuild.Publish(repository, previous, "0.1.4", platform: VersionedBuild.MacOS));
+            Assert.Throws<ArgumentException>(() => VersionedBuild.NextDirectory(repository, "0.1.3", "../other"));
+        }
+
+        [Test]
+        public void MacZipPreservesExecutableModesAndUnixCreatorMetadata()
+        {
+            string mac = CreateMacFixture("0.1.3");
+            VersionedBuild.Publish(repository, mac, "0.1.3", platform: VersionedBuild.MacOS);
+            using (var zip = ZipFile.OpenRead(mac + ".zip"))
+            {
+                foreach (string name in new[] { "TowerDefense.app/Contents/MacOS/Tower Defense PVP", "Start-Private-Steam-Test.command", "TowerDefense.app/Contents/Frameworks/UnityPlayer.dylib" })
+                    Assert.That((uint)zip.GetEntry(name).ExternalAttributes >> 16, Is.EqualTo(0x81EDu));
+                Assert.That((uint)zip.GetEntry("MAC_TESTING.md").ExternalAttributes >> 16, Is.EqualTo(0x81A4u));
+            }
+            using (var reader = new BinaryReader(File.OpenRead(mac + ".zip")))
+            {
+                reader.BaseStream.Position = reader.BaseStream.Length - 6;
+                uint central = reader.ReadUInt32();
+                reader.BaseStream.Position = central;
+                Assert.That(reader.ReadUInt32(), Is.EqualTo(0x02014B50u));
+                reader.ReadByte();
+                Assert.That(reader.ReadByte(), Is.EqualTo(3));
+            }
+        }
+
+        [Test]
+        public void MacUniversalCheckRejectsSingleArchitecture()
+        {
+            string mac = CreateMacFixture("0.1.3");
+            string executable = Path.Combine(mac, MacBuildArtifacts.ExecutablePath(mac));
+            using (var stream = File.OpenWrite(executable))
+            {
+                stream.Position = 28; // second architecture type
+                stream.Write(new byte[] { 1, 0, 0, 7 }, 0, 4);
+            }
+            Assert.Throws<IOException>(() => MacBuildArtifacts.RequireUniversal(executable));
+        }
+
+        private string CreateMacFixture(string version)
+        {
+            string directory = VersionedBuild.NextDirectory(repository, version, VersionedBuild.MacOS);
+            string contents = Path.Combine(directory, "TowerDefense.app/Contents");
+            Directory.CreateDirectory(Path.Combine(contents, "MacOS"));
+            Directory.CreateDirectory(Path.Combine(contents, "Frameworks"));
+            Directory.CreateDirectory(Path.Combine(contents, "Plugins/steam_api.bundle/Contents/MacOS"));
+            File.WriteAllText(Path.Combine(contents, "Info.plist"), "<plist><dict><key>CFBundleExecutable</key><string>Tower Defense PVP</string><key>CFBundleShortVersionString</key><string>" + version + "</string></dict></plist>");
+            foreach (string relative in new[] { "MacOS/Tower Defense PVP", "Frameworks/UnityPlayer.dylib", "Plugins/steam_api.bundle/Contents/MacOS/libsteam_api.dylib" })
+            {
+                // Minimal architecture table fixture, not a runnable binary.
+                var bytes = new byte[48];
+                bytes[0] = 0xCA; bytes[1] = 0xFE; bytes[2] = 0xBA; bytes[3] = 0xBE; bytes[7] = 2;
+                bytes[8] = 1; bytes[11] = 7; bytes[28] = 1; bytes[31] = 12;
+                File.WriteAllBytes(Path.Combine(contents, relative), bytes);
+            }
+            return directory;
+        }
     }
 }
