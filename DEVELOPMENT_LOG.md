@@ -24,6 +24,7 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 
 Status: implemented and locally packaged; final automated/single-device EOS/Steam service, Windows startup/LAN and Mac static checks passed. Not a published release, main merge, real remote guest/Steam peer or Mac runtime pass.
 Version/branch: `0.1.5`, `codex/eos-guest-networking`, based on pushed 0.1.4 checkpoint `9a700fe`. Owner authorized EOS implementation and later queue/party/2v2v2v2 preparation; guest and Steam pools stay separate. Publication preference was asked separately; no new merge is authorized.
+Source recovery checkpoint: [`afbd402`](https://github.com/paubchud/Tower-Defense-Unity/commit/afbd402c08c23516b537df7e91510fe4cb61e3c1), committed and pushed to [`codex/eos-guest-networking`](https://github.com/paubchud/Tower-Defense-Unity/tree/codex/eos-guest-networking). This is source recovery, not a new GitHub Release download. Post-push remote audit confirms main remains `b101681`, fixed `v0.1`/`v0.1.2`/`v0.1.3` tags are unchanged and no `v0.1.5` tag exists. Published 0.1.3 remains the public download until separate approval/publication succeeds.
 
 ### Changed
 
