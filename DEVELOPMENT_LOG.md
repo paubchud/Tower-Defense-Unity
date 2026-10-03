@@ -22,6 +22,7 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 
 Status: implemented and locally verified startup/profile increment; Windows/Mac local packages are ready. Not a published download, EOS guest internet implementation, Mac runtime pass or real two-account Steam peer pass.
 Version/branch: `0.1.4`, `codex/unified-sign-in`, from clean `1d67bf9` on the published Mac compatibility branch. Main and fixed tags/downloads are untouched; no merge/release is authorized by this startup request.
+Source recovery checkpoint: [`69229c0`](https://github.com/paubchud/Tower-Defense-Unity/commit/69229c0), committed and pushed to [`codex/unified-sign-in`](https://github.com/paubchud/Tower-Defense-Unity/tree/codex/unified-sign-in). This is source recovery only; local 0.1.4 ZIPs are not GitHub Release downloads. Published 0.1.3 remains the fixed public download.
 
 ### Changed
 
