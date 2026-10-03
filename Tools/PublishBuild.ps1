@@ -165,7 +165,9 @@ try {
             tag_name = $tag
             target_commitish = $commit
             name = 'Tower Defense ' + $build.version + $(if ($SteamTestPrerelease) { ' - Experimental Steam Playtest' } else { '' })
-            body = Get-Content -LiteralPath $notesPath -Raw
+            # Windows PowerShell annotates Get-Content strings with PSDrive/PSProvider.
+            # Nested JSON can serialize that entire metadata graph instead of a plain body string.
+            body = [System.IO.File]::ReadAllText($notesPath)
             draft = $true
             prerelease = [bool]$SteamTestPrerelease
             make_latest = 'false'
