@@ -20,6 +20,15 @@ The implementation order lives in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), th
 - **Guest play:** source/local packages 0.1.5 include EOS guest internet login/rooms/transport independently of Steam, using the selected portal configuration and limited game-client credential. Real guest peer connectivity and progression saves are not verified/implemented. Published 0.1.3 predates guest networking. See [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md).
 - **Next gameplay release:** 0.2, Step 2's combat and troop sending, after real two-account/device networking verification. Only the prior 0.1.2 source was caught up to main by the owner's cleanup request; 0.1.3/0.1.4/0.1.5 remain on update branches pending new merge authorization.
 
+## 2026-10-03 - Publish EOS guest playtest 0.1.5
+
+Status: owner-authorized publication prepared; not published until the command and public-download verification succeed. Version/branch: `0.1.5`, `codex/eos-guest-networking`, using the unchanged verified Windows/Mac packages from the implementation entry below. No gameplay/runtime fix or main merge is included.
+
+- Owner asked to make the EOS version a new GitHub release. Publish paired experimental downloads through `Tools/PublishBuild.ps1 -SteamTestPrerelease -IncludeMacOS`, preserving old releases/tags and latest stable v0.1. Local ZIPs include the extractable limited EOS game-client credential, not a server/admin key; source credentials remain ignored. No billing changes.
+- Added release-note instructions for same-PC LAN testing and the reported guest self-connect/start-failure/`LobbyNotOwner` cleanup warning. Read-only inspection of the owner's Player.log showed successful EOS authentication and client room entry, then transport startup failure and attempted destroy cleanup. Code rejects matching local/host EOS identity but chooses destroy/leave by identity rather than connection role. This supports the same-account explanation and identifies a known cleanup/error-reporting follow-up; neither is fixed by publication.
+- Pre-publication unauthenticated GitHub audit confirmed existing v0.1/v0.1.2/v0.1.3 release IDs, sizes/digests and tags; no v0.1.5 exists. Remote main remains `b101681`; latest stable is v0.1. Prior runtime evidence remains 92/92 tests, Windows live EOS/Steam single-host/startup/LAN checks and Mac static checks, not two-device guest/Steam or real Mac runtime verification.
+- Required next actions: package/dry-run checks, clean pushed source, exact-build LAN regression during publication, new fixed release/tag and full anonymous ZIP size/SHA256 verification. After successful publication, update the current status/download links. Separate-device/home guest tests, both host roles and real Mac launch/security/input remain external gates.
+
 ## 2026-10-03 - EOS guest networking and future queue/party foundations 0.1.5
 
 Status: implemented and locally packaged; final automated/single-device EOS/Steam service, Windows startup/LAN and Mac static checks passed. Not a published release, main merge, real remote guest/Steam peer or Mac runtime pass.
