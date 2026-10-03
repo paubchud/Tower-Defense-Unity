@@ -36,11 +36,15 @@ namespace TowerDefense.Networking
         public AccountIdentity LocalAccount { get; private set; }
         public SteamLobbyService SteamService { get; private set; }
         public PlayerSignInService SignIn { get; private set; }
+        public EosGuestService GuestService { get; private set; }
+        public MatchFormat Format => MatchFormat.Duel; // Eight-player content/map/authority gates must pass before enabling FourTeamDuos.
         public NetworkHero LocalHero => Heroes.Find(hero => hero != null && hero.IsOwner);
         private UnityTransport transport;
         private SteamP2PTransport steamTransport;
+        private EosP2PTransport guestTransport;
         private readonly Dictionary<ulong, string> approved = new Dictionary<ulong, string>();
         private readonly Dictionary<ulong, int> sides = new Dictionary<ulong, int>();
+        private readonly TeamSeatAllocator teamSeats = new TeamSeatAllocator(MatchFormat.Duel);
         private bool stopping;
         private int connectionAttempt;
         private CancellationTokenSource preparationCancellation;
@@ -57,6 +61,8 @@ namespace TowerDefense.Networking
             DontDestroyOnLoad(gameObject);
             Controls = gameObject.AddComponent<PrototypeInput>();
             SteamService = gameObject.AddComponent<SteamLobbyService>();
+            GuestService = gameObject.AddComponent<EosGuestService>();
+            guestTransport = gameObject.AddComponent<EosP2PTransport>();
             transport = gameObject.AddComponent<UnityTransport>();
             steamTransport = gameObject.AddComponent<SteamP2PTransport>();
             steamTransport.IsRoomMember = SteamService.IsMember;
@@ -75,14 +81,21 @@ namespace TowerDefense.Networking
             Manager.OnClientDisconnectCallback += Disconnected;
             SignIn = gameObject.AddComponent<PlayerSignInService>();
             SignIn.Initialize(SteamService);
+            if (Application.isEditor || Debug.isDebugBuild) gameObject.AddComponent<TowerDefense.Diagnostics.EosSmokeTest>();
         }
 
         public bool ContinueAsGuest()
         {
             if (!CanConnect || !SignIn.ContinueAsGuest()) return false;
-            SetOnlineProvider(new UnconfiguredGuestProvider());
+            SetOnlineProvider(new EosGuestProvider(GuestService, guestTransport));
+            var args = Environment.GetCommandLineArgs();
+            bool localDiagnostic = (Application.isEditor || Debug.isDebugBuild) &&
+                (Array.IndexOf(args, "-td-steam-config-test") >= 0 || Array.IndexOf(args, "-td-smoke-host") >= 0 || Array.IndexOf(args, "-td-smoke-client") >= 0);
+            if (GuestService.Configured && !localDiagnostic) _ = WarmGuestLogin();
             return true;
         }
+
+        private async Task WarmGuestLogin() { try { await GuestService.SignInAsync(); } catch { /* Guest UI shows a sanitized retryable status; LAN still works. */ } }
 
         public void SetOnlineProvider(IOnlineProvider provider)
         {
@@ -121,7 +134,7 @@ namespace TowerDefense.Networking
             JoinCode = string.Empty;
             ServiceErrorCode = null;
             LocalAccount = default;
-            approved.Clear(); sides.Clear(); Heroes.Clear();
+            approved.Clear(); sides.Clear(); teamSeats.Clear(); Heroes.Clear();
             Controls.BlockGameplay = false;
             Manager.NetworkConfig.ConnectionData = Encoding.UTF8.GetBytes("td-game-" + Application.version + "|" + classId);
             return true;
@@ -240,15 +253,21 @@ namespace TowerDefense.Networking
                 ? string.Empty : Encoding.UTF8.GetString(request.Payload);
             string prefix = "td-game-" + Application.version + "|";
             string classId = payload.StartsWith(prefix, StringComparison.Ordinal) ? payload.Substring(prefix.Length) : string.Empty;
-            response.Approved = Catalog.FindClass(classId) != null && (approved.ContainsKey(request.ClientNetworkId) || approved.Count < 2);
+            response.Approved = Catalog.FindClass(classId) != null && (approved.ContainsKey(request.ClientNetworkId) || approved.Count < Format.TotalPlayers);
             response.Pending = false;
             response.CreatePlayerObject = response.Approved;
             if (!response.Approved)
             {
-                response.Reason = approved.Count >= 2 ? "This 1v1 arena is full." : "Class or game version does not match the host.";
+                response.Reason = approved.Count >= Format.TotalPlayers ? "This 1v1 arena is full." : "Class or game version does not match the host.";
                 return;
             }
-            int side = sides.TryGetValue(request.ClientNetworkId, out int existing) ? existing : (sides.ContainsValue(0) ? 1 : 0);
+            if (!teamSeats.TryGet(request.ClientNetworkId, out var seat))
+            {
+                if (!teamSeats.TryAssignParty(new[] { request.ClientNetworkId }))
+                { response.Approved = response.CreatePlayerObject = false; response.Reason = "No team slot is available."; return; }
+                teamSeats.TryGet(request.ClientNetworkId, out seat);
+            }
+            int side = seat.Team;
             approved[request.ClientNetworkId] = classId;
             sides[request.ClientNetworkId] = side;
             response.Position = Catalog.TestMap.Lanes[side].HeroSpawn;
@@ -274,6 +293,7 @@ namespace TowerDefense.Networking
                 // Rejected/unapproved connections must not reset the two accepted players' match.
                 if (!approved.Remove(id)) return;
                 sides.Remove(id);
+                teamSeats.Remove(id);
                 foreach (var hero in Heroes)
                     if (hero != null && hero.IsSpawned && hero.OwnerClientId != id) hero.ResetForLobby();
                 Status = "Opponent disconnected. Waiting for a replacement.";
@@ -295,7 +315,7 @@ namespace TowerDefense.Networking
 
         public void TryBeginMatch()
         {
-            if (!Manager.IsServer || Heroes.Count != 2) return;
+            if (!Manager.IsServer || Heroes.Count != Format.TotalPlayers) return;
             foreach (var hero in Heroes)
                 if (!hero.IsSpawned || !hero.Ready.Value) return;
             foreach (var hero in Heroes) hero.Running.Value = true;
@@ -343,7 +363,7 @@ namespace TowerDefense.Networking
             Online = false;
             Manager.Shutdown();
             while (Manager.ShutdownInProgress) yield return null;
-            approved.Clear(); sides.Clear(); Heroes.Clear();
+            approved.Clear(); sides.Clear(); teamSeats.Clear(); Heroes.Clear();
             Controls.BlockGameplay = false;
             yield return SceneManager.LoadSceneAsync("MainMenu");
             Status = "Choose a class to begin.";

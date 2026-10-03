@@ -180,6 +180,7 @@ namespace TowerDefense.Editor
                 options = BuildOptions.Development
             });
             if (report.summary.result != BuildResult.Succeeded) throw new InvalidOperationException("Prototype build failed: " + report.summary.result);
+            EosBuildConfiguration.CopyToBuild(directory, platform);
             // Never change the launcher or latest-build manifest after a failed/canceled build.
             VersionedBuild.Publish(repository, directory, version, platform: platform);
             Debug.Log("TD_BUILD_PASS " + output);

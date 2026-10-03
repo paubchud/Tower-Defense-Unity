@@ -37,6 +37,8 @@ namespace TowerDefense.Editor
                 if (paths.Length != 1) throw new IOException("Expected exactly one Mac native library: " + filename);
                 RequireUniversal(paths[0]);
             }
+            var eosPaths = Directory.GetFiles(Path.Combine(directory, "TowerDefense.app"), "libEOSSDK-Mac-Shipping.dylib", SearchOption.AllDirectories);
+            foreach (string eosPath in eosPaths) RequireUniversal(eosPath);
         }
 
         private static uint ReadBigEndian(BinaryReader reader)

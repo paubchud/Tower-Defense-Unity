@@ -32,16 +32,19 @@ $notesPath = Join-Path $releaseRepo ('Releases\' + $build.version + '.md')
 if (-not (Test-Path -LiteralPath $notesPath)) { throw "Add release notes at Releases/$($build.version).md first." }
 $archiveSize = (Get-Item -LiteralPath $archive).Length
 $archiveHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-$assets = @([pscustomobject]@{ name = $build.archive; path = $archive; size = $archiveSize; hash = $archiveHash })
+$guestConfigured = $build.PSObject.Properties.Name -contains 'eosGuestConfigured' -and $build.eosGuestConfigured
+$assets = @([pscustomobject]@{ name = ('TowerDefense-' + $build.version + '-Windows.zip'); path = $archive; size = $archiveSize; hash = $archiveHash })
 if ($IncludeMacOS) {
     $macManifest = Join-Path $releaseBuildRoot 'latest-build-macOS.json'
     if (-not (Test-Path -LiteralPath $macManifest)) { throw 'Create a versioned Mac development build first.' }
     $mac = Get-Content -LiteralPath $macManifest -Raw | ConvertFrom-Json
     if ($mac.version -ne $build.version -or $mac.onlineProvider -ne $build.onlineProvider -or $mac.steamAppId -ne $build.steamAppId -or
         $mac.privateSteamPlaytestAvailable -ne $build.privateSteamPlaytestAvailable) { throw 'Windows and Mac must be matching version/provider/test-mode builds.' }
+    $macGuestConfigured = $mac.PSObject.Properties.Name -contains 'eosGuestConfigured' -and $mac.eosGuestConfigured
+    if ($macGuestConfigured -ne $guestConfigured) { throw 'Windows and Mac guest configuration availability must match.' }
     & (Join-Path $PSScriptRoot 'ValidateMacBuild.ps1') -ManifestPath $macManifest
     $macArchive = Resolve-ReleaseArtifact $mac.archive
-    $assets += [pscustomobject]@{ name = $mac.archive; path = $macArchive; size = (Get-Item -LiteralPath $macArchive).Length; hash = (Get-FileHash -LiteralPath $macArchive -Algorithm SHA256).Hash.ToLowerInvariant() }
+    $assets += [pscustomobject]@{ name = ('TowerDefense-' + $build.version + '-macOS.zip'); path = $macArchive; size = (Get-Item -LiteralPath $macArchive).Length; hash = (Get-FileHash -LiteralPath $macArchive -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
 $tag = 'v' + $build.version
 
@@ -164,7 +167,7 @@ try {
         $release = Invoke-ReleaseApi 'POST' ($api + '/releases') @{
             tag_name = $tag
             target_commitish = $commit
-            name = 'Tower Defense ' + $build.version + $(if ($SteamTestPrerelease) { ' - Experimental Steam Playtest' } else { '' })
+            name = 'Tower Defense ' + $build.version + $(if ($SteamTestPrerelease) { if ($guestConfigured) { ' - Experimental Steam + EOS Guest Playtest' } else { ' - Experimental Steam Playtest' } } else { '' })
             # Windows PowerShell annotates Get-Content strings with PSDrive/PSProvider.
             # Nested JSON can serialize that entire metadata graph instead of a plain body string.
             body = [System.IO.File]::ReadAllText($notesPath)

@@ -1,5 +1,13 @@
 # Guest play preparation
 
+## Current 0.1.5 implementation
+
+Owner-authorized EOS integration is implemented on `codex/eos-guest-networking`: explicit guest startup uses real EOS Connect Device ID login, TDG code-selected lobbies and an independent NGO P2P/relay adapter. 92/92 tests and real single-device login/canceled-create destruction/NGO host/leave/fresh-rehost passed. Final package and regression results live in the development log. Real two-device/home P2P and Mac runtime are still required; the test is not evidence of those. No account UI, Steam guest dependency, billing, cloud saves or trusted rewards were added. Local GUID/profile and `eos-guest` authenticated Product User ID remain separate. See EOS_SETUP.md for local credential/dependency setup and limitations.
+
+Future main-mode queues and friend parties for four teams of two are explicitly planned. Core immutable party/request/format contracts and atomic same-team party seat reservations are tested; today's 1v1 uses the same allocator for solo admission. Networked party invites/consent/leadership, queue service/search/ticket/host selection and the eight-player map/game rules are not enabled. Preserve separate pools and keep parties independent of leaving a match.
+
+The following 0.1.4 entry and original sequence are retained as historical context; EOS was not connected in that earlier build.
+
 Guest internet play is a future feature, not enabled by this increment. In source **0.1.4**, the owner chose one automatic startup sign-in flow and explicitly kept Steam/guest matchmaking separate. Steam sign-in opens the main menu automatically; unsuccessful/unconfigured Steam offers explicit local guest sign-in or retry. Local guest identity now persists with a versioned GUID/backup and does not require Steam. It is not a saved progression system or EOS authentication.
 
 The owner reconsidered the earlier EOS cancellation and created an EOS product, Peer2Peer client, Live sandbox and deployment. EOS is now the selected guest direction, but the SDK/client secret/device login/room service/transport have not been connected. No guest internet or billing is enabled. Existing fixed Steam downloads stay unchanged. Do not confuse portal setup, local guest profile creation and verified EOS internet multiplayer.

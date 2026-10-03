@@ -23,6 +23,7 @@ namespace TowerDefense.Editor
             public string onlineProvider;
             public uint steamAppId;
             public bool privateSteamPlaytestAvailable;
+            public bool eosGuestConfigured;
         }
 
         public static void ValidateVersion(string version)
@@ -118,7 +119,8 @@ namespace TowerDefense.Editor
                 builtAtUtc = DateTime.UtcNow.ToString("o"),
                 onlineProvider = "Steam",
                 steamAppId = Resources.Load<SteamSettings>("SteamSettings")?.AppId ?? 0,
-                privateSteamPlaytestAvailable = developmentBuild
+                privateSteamPlaytestAvailable = developmentBuild,
+                eosGuestConfigured = File.Exists(EosBuildConfiguration.Destination(directory, platform))
             };
             if (developmentBuild)
             {
@@ -138,7 +140,9 @@ namespace TowerDefense.Editor
                     + "Use separate Steam accounts/devices and matching builds. Keep the host game open.\r\n"
                     + "Steam may show Spacewar: this uses Valve's shared example App ID 480, not our production identity.\r\n"
                     + "Both players should already have this game running; an invite can launch Spacewar if it is closed.\r\n"
-                    + "Guest startup creates a local device profile and permits LAN tests; guest INTERNET matchmaking is not connected yet.\r\n"
+                    + "Direct launch: choose Play as Guest to sign in anonymously through EOS; no Steam/Epic account UI.\r\n"
+                    + "Host Guest and share the full TDG room code; friend uses Join Guest. Guest and Steam matches are separate.\r\n"
+                    + "Guest EOS relay internet networking is experimental; real two-device/home verification is still required. LAN tests remain available.\r\n"
                     + "Experimental development build only; not production Steam distribution or a completed combat game.\r\n"
                     + "Real two-device replication/reachability still needs testing; report host/client logs if it fails.\r\n");
             }

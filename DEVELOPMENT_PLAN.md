@@ -6,6 +6,8 @@ This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md)
 
 ## Current state
 
+- **0.1.5 EOS guest networking**, `codex/eos-guest-networking`: selected backend is connected through anonymous Connect Device ID, code-selected EOS lobbies and a custom bounded NGO P2P/relay transport. 92 tests and real single-device login/canceled-create cleanup/NGO host/leave/fresh-rehost passed; final local packages/regressions are recorded in the log. Still no real two-peer/home guest reachability or Mac execution proof. Future queue requests, immutable same-pool party rosters and atomic same-team reservations support planned four teams of two, but the active mode remains 1v1 and the queue/party service/UI/eight-player map are not implemented. See EOS_SETUP.md. No main merge, trusted server, cloud progression or paid billing is implied.
+
 - New source increment **0.1.4**, `codex/unified-sign-in`: one startup Steam check, automatic menu entry after a valid SDK sign-in, explicit guest choice/retry if unavailable, and a versioned device-local guest identity. 75/75 tests, both local packages, Windows guest/automatic-Steam/LAN checks and Mac static validation passed. Owner confirmed separate Steam and guest matchmaking; EOS is newly selected for future guest internet integration, superseding the old cancellation. Portal setup exists, but EOS SDK/credentials/rooms/transport are not enabled. Guest online actions stay disabled; LAN remains. This increment does not complete Step 2, cloud saves, EOS peer verification, Mac runtime, or a new release/main merge. Published 0.1.3 stays fixed.
 
 - Unity project: `Tower Defense PVP`, Unity `6000.6.3f1`, Universal Render Pipeline.
@@ -20,6 +22,7 @@ This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md)
 - Confirmed presentation/controls: 3D models, continuous hero-centered camera follow, and WASD hero movement. Start from an elevated/top-down angle and interpret right-click dragging as orbiting around the hero; camera tuning can change during development.
 - Confirmed death rule: timed respawn with a controllable ghost that can roam and buy/sell/interact with its own side, but cannot attack or collect resources.
 - Future-system requirements: scrollable weapon/item hotbar, shortcuts for match management panels, configurable class energy pools, and equipment slots with class-specific starter gear. Loot/crafting/upgrading rules remain undecided.
+- Future online modes: owner wants queue-based random matchmaking and persistent friend parties for **2v2v2v2 (four teams of two, eight players)**. Keep party membership/invites separate from per-match lobbies and profile IDs separate from transport IDs. Preserve Steam/Steam-test/guest pools and whole-party team placement. Before enabling, implement verified consent/leader/membership lifecycle, fair/cancelable queue tickets, four-team map/ally rules and measured eight-player performance/admission limits. Current 0.1.5 contracts/tests are preparation, not a working queue or online party.
 - Roster target: five technology groups with five classes each (25 total). Warrior and future bow-wielding Hunter are Primate; Wizard is Mystic. Classes in the same group share its tower catalog. Three group names and the remaining roster are not yet supplied.
 
 ## Target and sequence

@@ -1,4 +1,7 @@
 # Unity generated folders
+.local/
+# Generated game-client EOS configuration; never commit client credentials.
+**/Assets/StreamingAssets/TowerDefense/eos-settings.json*
 [Ll]ibrary/
 [Tt]emp/
 [Oo]bj/

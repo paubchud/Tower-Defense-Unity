@@ -57,7 +57,9 @@ $plist.Load($plistPath)
 if ($plist.SelectSingleNode('/plist/dict/key[text()="CFBundleExecutable"]/following-sibling::string[1]').InnerText -ne $parts[4] -or
     $plist.SelectSingleNode('/plist/dict/key[text()="CFBundleShortVersionString"]/following-sibling::string[1]').InnerText -ne $macBuild.version) { throw 'Mac bundle name/version does not match its manifest.' }
 $macNative = @($macExe)
-foreach ($name in @('UnityPlayer.dylib', 'libsteam_api.dylib')) {
+$nativeNames = @('UnityPlayer.dylib', 'libsteam_api.dylib')
+if ($macBuild.PSObject.Properties.Name -contains 'eosGuestConfigured' -and $macBuild.eosGuestConfigured) { $nativeNames += 'libEOSSDK-Mac-Shipping.dylib' }
+foreach ($name in $nativeNames) {
     $matches = @(Get-ChildItem -LiteralPath (Join-Path $macDirectory 'TowerDefense.app') -Recurse -File -Filter $name)
     if ($matches.Count -ne 1) { throw "Expected exactly one $name in the Mac bundle." }
     $macNative += Resolve-MacFile ($parts[0] + '/' + $matches[0].FullName.Substring($macDirectory.Length + 1))
@@ -106,4 +108,4 @@ try {
         $offset += 46 + $zipReader.ReadUInt16() + $zipReader.ReadUInt16() + $zipReader.ReadUInt16()
     }
 } finally { $zipReader.Dispose() }
-Write-Output "TD_MAC_PACKAGE_PASS v$($macBuild.version): Universal player/Unity/Steam binaries, bundle metadata, every ZIP file hash and executable modes verified. Real Mac launch/security/input/Steam peer testing remains pending."
+Write-Output "TD_MAC_PACKAGE_PASS v$($macBuild.version): Universal player and required native libraries (including EOS when configured), bundle metadata, every ZIP file hash and executable modes verified. Real Mac launch/security/input/Steam/EOS peer testing remains pending."

@@ -19,6 +19,7 @@ namespace TowerDefense.UI
         private RectTransform modal;
         private Text status;
         private Text heroLabel;
+        private Text guestStatus;
         private Text roster;
         private Text readyLabel;
         private Button ready;
@@ -110,6 +111,7 @@ namespace TowerDefense.UI
         {
             if (page != null) { page.gameObject.SetActive(false); Destroy(page.gameObject); }
             connectionPage = false;
+            guestStatus = null;
             signInPage = false;
             roomCodeField = null;
             connectionWidgets.Clear();
@@ -129,6 +131,8 @@ namespace TowerDefense.UI
                 "Signed in: " + session.SignIn.Flow.DisplayName + (session.SignIn.Account.Provider == "steam-test" ? " / Steam development test" : " / Steam"),
                 new Vector2(0, 140), new Vector2(1000, 35), 18, Muted);
             profile.supportRichText = false;
+            if (session.SignIn.Account.Provider == "guest")
+                guestStatus = Label(page, session.GuestService.Status, new Vector2(0, -235), new Vector2(950, 75), 17, Muted);
             ActionButton(page, "PLAY", new Vector2(0, 60), new Vector2(310, 65), BuildClassSelection, true);
             ActionButton(page, "STORE", new Vector2(0, -30), new Vector2(310, 65), BuildStore);
             ActionButton(page, "EXIT", new Vector2(0, -120), new Vector2(310, 65), Exit);
@@ -146,7 +150,7 @@ namespace TowerDefense.UI
                 return;
             }
             Label(page, "CONTINUE AS A GUEST", new Vector2(0, 105), new Vector2(900, 50), 30, Color.white);
-            Label(page, "No account or password required. Your guest profile stays on this device.\nGuest internet matchmaking is not connected yet; LAN testing is available.",
+            Label(page, "No account or password required. Your local guest profile stays on this device.\nOnline guest play uses EOS. Steam and guest matches stay separate.",
                 new Vector2(0, 35), new Vector2(900, 65), 18, Muted);
             ActionButton(page, "PLAY AS GUEST", new Vector2(-155, -45), new Vector2(285, 58), () =>
             {
@@ -219,7 +223,7 @@ namespace TowerDefense.UI
             code.placeholder = placeholder;
             Label(page, provider.DisplayName + " connection. Host or paste the room code from your friend.", new Vector2(0, -40), new Vector2(900, 35), 17, Muted);
             connectionWidgets.Add(code);
-            bool guestUnavailable = provider is UnconfiguredGuestProvider;
+            bool guestUnavailable = provider is UnconfiguredGuestProvider || (provider is EosGuestProvider && !session.GuestService.Configured);
             var hostButton = ActionButton(page, "HOST " + provider.DisplayName.ToUpperInvariant(), new Vector2(-155, -100), new Vector2(270, 58), () =>
             {
                 _ = session.ConnectOnlineAsync(true, selectedClass);
@@ -234,7 +238,8 @@ namespace TowerDefense.UI
             if (!guestUnavailable) { connectionWidgets.Add(hostButton); connectionWidgets.Add(joinButton); }
             status = Label(page, provider is SteamOnlineProvider && session.SteamService.PrivatePlaytest
                 ? "PRIVATE DEVELOPMENT TEST / App ID 480. Both players enable this mode, use the same build and separate Steam accounts/devices. Share a numeric code with your friend."
-                : guestUnavailable ? UnconfiguredGuestProvider.SetupMessage : provider.DisplayName + " account + room networking. Use the same build. Steam and guest rooms are separate.",
+                : guestUnavailable ? EosSettings.MissingMessage : provider is EosGuestProvider ? session.GuestService.Status
+                : provider.DisplayName + " account + room networking. Use the same build. Steam and guest rooms are separate.",
                 new Vector2(0, -185), new Vector2(850, 90), 17, Muted);
             observedStatus = session.Status;
             connectionWidgets.Add(ActionButton(page, "LAN / THIS PC", new Vector2(150, -275), new Vector2(270, 48), () => BuildLanConnection(classId)));
@@ -370,6 +375,7 @@ namespace TowerDefense.UI
                     else if (observedSignIn != session.SignIn.Flow.State) BuildSignIn();
                     return;
                 }
+                if (guestStatus != null) guestStatus.text = session.GuestService.Status;
                 if (!connectionPage) return;
                 foreach (var widget in connectionWidgets) widget.interactable = session.CanConnect;
                 string incoming = session.OnlineProvider.PendingInvite;

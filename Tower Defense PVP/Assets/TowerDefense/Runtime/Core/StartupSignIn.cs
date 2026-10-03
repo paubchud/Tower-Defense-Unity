@@ -50,7 +50,7 @@ namespace TowerDefense.Core
                 Account = account;
                 DisplayName = "Guest";
                 State = StartupSignInState.SignedIn;
-                Status = "Using your local guest profile. Online guest matchmaking is not configured yet.";
+                Status = "Using your local guest profile. Online authentication is managed separately by the guest provider.";
                 return true;
             }
             catch (Exception)

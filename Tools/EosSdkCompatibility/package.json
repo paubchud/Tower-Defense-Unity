@@ -1,0 +1,9 @@
+{
+  "name": "com.towerdefense.eos.sdk",
+  "version": "1.19.2",
+  "displayName": "Tower Defense pinned EOS C# SDK",
+  "description": "Unmodified Epic EOS C# SDK and Windows x64/Universal Mac native libraries from EOS-Contrib Unity package 6.2.0, pinned source 65e44063d5f908002e74a3080343fb0be561dacb. No sample build/overlay/Steam integration tools.",
+  "unity": "6000.0",
+  "documentationUrl": "https://dev.epicgames.com/docs/epic-online-services",
+  "dependencies": {}
+}

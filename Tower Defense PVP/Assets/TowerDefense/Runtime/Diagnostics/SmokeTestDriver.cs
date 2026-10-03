@@ -221,16 +221,16 @@ namespace TowerDefense.Diagnostics
             passed &= session.SignIn.Flow.State == StartupSignInState.GuestChoice && session.SteamService.InitializedAppId == 0;
             yield return EnsureGuestSignIn();
             passed &= session.SignIn.Ready && session.SignIn.Account.Provider == "guest" &&
-                session.OnlineProvider is UnconfiguredGuestProvider && session.SteamService.InitializedAppId == 0;
+                session.OnlineProvider is EosGuestProvider && session.SteamService.InitializedAppId == 0;
             var profile = session.SignIn.Account;
             if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "guest-main-menu.png"));
             Click("PLAY"); yield return null;
             Click("SELECT", "Warrior"); yield return null;
             foreach (var button in UnityEngine.Object.FindObjectsByType<Button>(FindObjectsSortMode.None))
-                if (button.name == "HOST GUEST" || button.name == "JOIN GUEST") passed &= !button.interactable;
+                if (button.name == "HOST GUEST" || button.name == "JOIN GUEST") passed &= button.interactable == session.GuestService.Configured;
             passed &= session.SignIn.Account.Equals(profile) && !session.LocalAccount.IsValid;
             if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, "steam-setup-required.png"));
-            Debug.Log(passed ? "TD_STEAM_CONFIG_PASS app=0 no-native-init startup-retry guest-consent stable-local-profile disabled-guest-internet" : "TD_STEAM_CONFIG_FAIL");
+            Debug.Log(passed ? "TD_STEAM_CONFIG_PASS app=0 no-Steam-native-init startup-retry guest-consent stable-local-profile EOS-provider" : "TD_STEAM_CONFIG_FAIL");
             Application.Quit(passed ? 0 : 1);
         }
 
@@ -378,7 +378,7 @@ namespace TowerDefense.Diagnostics
             return i >= 0 && i + 1 < args.Length ? args[i + 1] : string.Empty;
         }
 
-        private static void Capture(string path)
+        internal static void Capture(string path)
         {
             // Hidden test windows can skip presenting frames. Render the live scene/UI explicitly for QA.
             var camera = Camera.main;
