@@ -36,7 +36,7 @@ This verifies SHA256 `aafe5a1cc278f2f65e0373777706d0a1028eea49b9548ef4a7520cc50f
 
 ## Guest play / friend test
 
-1. Both players use the complete **same-version** Windows/Mac package. Current 0.1.5 local packages are experimental source outputs, not automatically a new GitHub release. Older 0.1.3 downloads cannot use this guest adapter.
+1. Both players use the complete **same-version** Windows/Mac package from the [fixed experimental 0.1.5 release](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.1.5). Both complete anonymous downloads passed size/SHA256 verification; this is not a two-device guest or Mac runtime pass. Older 0.1.3 downloads cannot use this guest adapter.
 2. Launch the executable/app directly and choose **Play as Guest**. Do not use the explicit Steam test launcher for a guest test. Watch the EOS status at the menu; a configuration/service error does not erase the local guest profile. Retry Host Guest after correcting connectivity; a packaged configuration fix needs a rebuild.
 3. Play, select a class, **Host Guest**, copy/share the **full TDG room code**, then the other guest selects **Join Guest**. Both ready up. The host must stay open. One device's EOS Device ID cannot connect to itself; a localhost three-process LAN pass is not a guest internet peer pass.
 4. Test separate devices and home networks, both host roles, movement/selection replication, third-member rejection, reset/readiness, leaving/canceling, disconnected host, and fresh rehost/rejoin. With `forceRelay=true`, all guest peer traffic requests EOS relay rather than requiring user port forwarding; actual reachability/bandwidth/latency still must be measured on real networks.
@@ -49,7 +49,7 @@ Run `Tools/ValidateEosGuest.ps1 -Capture` for a **single-device/service** diagno
 
 ## Future queue and parties
 
-Core contracts define a distinct private-room/queue entry, provider pool, version, immutable party/leader roster and data-driven team count/size. Party membership cannot duplicate players, exceed one team's size, or mix Steam/Steam-test/guest pools. Per-match team-seat reservation is atomic and keeps whole parties on one team; it is used for today's solo 1v1 admission. The future `four-team-duos` format describes **four teams of two / eight players** but is deliberately not playable.
+Core contracts define a distinct private-room/queue entry, provider pool, version, immutable party/leader roster and data-driven team count/size. Party membership cannot duplicate players, exceed one team's size, or mix Steam/Steam-test/guest pools. Per-match team-seat reservation is atomic and keeps whole parties on one team; it is used for today's solo 1v1 admission. The future `four-team-duos` format describes **four teams of two / eight players** but is deliberately not playable. The new [MULTIPLAYER_FLOW.md](MULTIPLAYER_FLOW.md) design also specifies 4v4, pre-queue class/build selection, all-ready/loading gates, reconnect and premade/random-filled leaving policies. 4v4 has not been added to runtime contracts; reconnect/queues/parties remain unimplemented.
 
 Before enabling queues: implement authenticated party invites/acceptance/leader changes/disband/reconnect separately from match-room lifecycle; verify whole-party consent and admission; add search/ticket/cancel/timeout/assignment ownership, version/pool/region/skill policy and a fair host-selection/concurrent-admission strategy. Leaving a match must not automatically disband a party. Party snapshots are data, not proof of membership/authentication.
 

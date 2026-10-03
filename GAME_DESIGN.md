@@ -4,7 +4,7 @@ Status: working design based on the owner's gameplay description. This document 
 
 ## Core idea
 
-A 1v1 tower-defense game where each player controls a class-based hero, defends a castle, sends enemy units down the opponent's lane, and develops an economy. Players buy land, harvest materials, build defenses, and can invade the opponent's territory to steal resources and fight. Authored map challenges provide additional ways to strengthen a player during a match.
+A hero-controlled tower-defense game, starting with 1v1 and planning 2v2v2v2 and 4v4 team modes. Each player controls a class-based hero, defends, sends enemy units and develops an economy. Players buy land, harvest materials, build defenses, and can invade enemy territory to steal resources and fight. Authored map challenges provide additional ways to strengthen a player during a match. Team-mode castle/lane/economy/targeting rules remain to be designed before those modes are enabled.
 
 Long-term progression unlocks different ways to play. Strength gained inside a match is temporary and resets for the next match.
 
@@ -12,19 +12,38 @@ Long-term progression unlocks different ways to play. Strength gained inside a m
 
 1. Main menu: Play, Store, Exit.
 2. Store: spend currency earned through playing on class unlocks, alternative starter equipment, loadout choices, and customization.
-3. Play: select a class and starter loadout, then enter the multiplayer lobby and ready up. The precise matchmaking flow can be designed later.
-4. Match: defend, send units, improve units, develop the hero, acquire land, harvest materials, build towers, and invade.
-5. Match results: show the outcome and earned persistent currency, then offer rematch or return to menu.
+3. Play: choose a mode and queue solo or with a fitting friend party/team. Every player selects and confirms their class and starter build/loadout **before queueing**. Keep each party together on one team; fill open seats with compatible queued players.
+4. Match staging lobby: show the assigned teams/builds and wait for **every player** to ready up. Start only with a complete validated roster, then load the map and wait for loading acknowledgements before synchronized gameplay.
+5. Match: defend, send units, improve units, develop the hero, acquire land, harvest materials, build towers, and invade. Disconnect/reconnect state is separate from death/ghost state.
+6. Match results: show the outcome and any valid persistent rewards once, then return to the retained party/menu or consent to another queue. Private room-code challenges remain a separate option.
 
 The Store's purchase currency is earned by playing. Real-money purchases are not part of the current specification.
 
+## Multiplayer queues, parties, readiness and rejoining
+
+The owner confirmed this flow before Milestone 2 on 2026-10-03. Detailed rules, unresolved balancing choices and implementation gates are in [MULTIPLAYER_FLOW.md](MULTIPLAYER_FLOW.md). These are intended features, not functionality shipped in 0.1.5.
+
+| Mode | Teams x players | Queue party size |
+| --- | --- | --- |
+| 1v1 | 2 x 1 | Solo; private challenge for a friend duel |
+| 2v2v2v2 | 4 x 2 | Solo or party of two |
+| 4v4 | 2 x 4 | Solo or parties of two to four |
+
+- Each player locks a valid class/build before entering a whole-party ticket. Changing the selection, mode or roster cancels that ticket and requires consent again. Ready is individual, not something the party leader can grant for others.
+- Matchmaking separates provider/version/mode compatibility, whole-party team assignment and suitable match-authority selection. Do not split a party, start shorthanded, silently mix Steam/guest pools or treat a social party as the match lobby itself.
+- Reconnect restores the same authenticated match-player/team/seat and gameplay state, even if its transport ID changes. It must not duplicate heroes/resources or reset death, energy, cooldowns or purchases.
+- In **1v1**, leaving/disconnecting gives **one minute to rejoin**; otherwise the opponent wins. Additional account punishment and double-abandonment handling are not specified.
+- A **fully premade team** means all its members were in the same party before queueing, as explicitly confirmed by the owner. Leaving gives that team **no compensation buff and no extra leaver penalty**, but can still cause a loss/forfeit. This is not limited to the entire team leaving together.
+- With **random-filled/mixed teams**, allow a reconnect opportunity. If the player fails to return before its deadline, remove them from active match participation and give the remaining team a small balance buff. Team grace duration, buff target/amount/cap and exact leaver consequence are TBD; no buff during grace. Freeze premade/random classification when teams are assigned, so later party changes cannot evade it.
+- Current player-hosted matches do not survive a host quitting/crashing. Authority survival, authenticated reserved slots, complete state recovery and result finalization are required gates before these reconnect promises can be enabled. A relay is not a running gameplay server.
+
 ## Publishing, guest identity, and saved progress
 
-- The latest owner decision is private Steam development playtesting now, with guest play accommodated later. Steam accounts are required for the current internet mode, but future guests must not require Steam. EOS remains canceled; no guest backend is selected and Steam/guest cross-play is not required.
-- Multiplayer should not require router port forwarding or metered third-party service-usage charges. Current private testing uses Steamworks identity/lobbies/P2P and explicit development App ID 480, separate from gameplay authority. The 0.1.2 private build is locally verified but still needs two-account/device replication checks. A real App ID is needed later for production distribution. Guest identity/networking will use an independent provider; public service limits/costs need a separate decision. The published 0.1 prototype still uses Unity Relay.
+- The latest startup decision uses configured Steam automatically or explicit EOS guest sign-in, with separate pools and no cross-play. Published experimental 0.1.5 includes EOS Connect Device ID/code rooms/transport, independently of Steam. Real two-device guest/Steam play and Mac execution still need verification; queues/parties/reconnect are not shipped.
+- Multiplayer should not require router port forwarding or metered third-party service-usage charges. Steam networking and EOS guest relay are selected adapters, not trusted gameplay servers. Keep development App ID 480 explicit; production Steam needs the game's own App ID. No paid billing is enabled. Matchmaking/authority-survival costs and service limits must be assessed before deployment. Stable 0.1 remains the legacy Unity Relay build.
 - Key later saved progress by provider-namespaced identity (Steam, private test or guest); keep account/profile IDs separate from per-match Netcode IDs. Define save schema/migrations/recovery and optional Steam Cloud or guest account linking before permanent unlocks. Multiplayer does not automatically implement saved progression. See GUEST_PLAY_PLAN.md.
-- Keep private credentials server-side. Player-hosted matches are suitable for private prototype tests, not trusted competitive rewards; persistence/security and storefront costs need their own plan.
-- Name tested builds by update version: `0.1` completes Step 1. Maintain the same local shortcut and a latest GitHub Release download, while retaining previous versions for rollback.
+- Keep privileged administrator/server keys out of clients/Git. EOS necessarily embeds an extractable limited game-client credential. Player-hosted matches are not trusted competitive rewards; persistence/security and storefront costs need their own plan.
+- Name tested builds by update version: `0.1` completes Step 1. Keep only the latest successful local build per platform, retain fixed published recovery tags/downloads, and leave the removed root shortcut absent. The owner's current privacy choice is to keep GitHub public but stop further source pushes. Existing published source/history is still visible; no private repository/download migration is authorized. Do not claim deleting current files hides public Git history.
 
 ## Presentation and controls
 
@@ -213,7 +232,7 @@ Prototype proposal: destroying the opposing castle wins the match. The castle's 
 
 Every match starts with defined resources, health, land ownership, and class/loadout state. The server controls ready state, match start, resource transactions, combat, match end, and reset.
 
-Once the match ends, stop accepting combat and economy commands. Record the result once and cleanly reset all temporary state for a rematch. A prototype disconnect can end the match; later reconnect and ranked policies require separate design.
+Once the match ends, stop accepting combat and economy commands. Record the result once and cleanly reset all temporary state for a rematch. The target disconnect/reconnect/forfeit/compensation rules are in MULTIPLAYER_FLOW.md; today's reset-on-disconnect prototype does not implement them. Preserve match-player identity and ownership for future recovery instead of treating transport disconnection as hero death or permission to recreate starting resources.
 
 ## First playable scope
 
@@ -248,7 +267,7 @@ The actual Store/unlock economy, full 25-class roster and five tower catalogs, e
 ## Open decisions, in implementation order
 
 1. Remaining controls/platform choices: aim behavior, combat/interaction/menu bindings, hotbar size/selection behavior, camera angle/distance/orbit tuning, and target platform. 3D models, continuous hero-centered camera follow, and WASD are confirmed; right-click dragging is interpreted as orbiting around the hero.
-2. Steamworks App ID/distribution configuration, two-account/device verification of the implemented Steam preview, save recovery, and host versus trusted dedicated server needs. EOS is canceled. The published 0.1 Unity Relay slice is retained for recovery; it is not the final Steam networking solution.
+2. Separate-device Steam/EOS and Mac verification; queue/party service coordination, readiness/loading deadlines, authority survival, reconnect credentials/state recovery and double-abandonment results; team grace, modest compensation and exact mixed-team leaver policy. Own Steam App ID/distribution, saved-progress recovery and source privacy/public-download arrangement also require decisions. No paid service or ranked reward system is authorized.
 3. Sending costs/cooldowns, XP award timing, unit upgrade scope, and kill reward attribution.
 4. Initial class energy pools/costs/recovery, starter equipment slots and compatibility, first Primate/Mystic towers, gold-funded hero leveling, starting land, plot rules, and material recipes.
 5. Invasion access, damage permissions, theft rules, respawn timer/location, carried-resource/equipment handling, ghost energy recovery, and remaining ghost equipment/crafting/sending permissions. The timed respawn and ghost management/attack/collection rules are confirmed.
