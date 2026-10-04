@@ -12,6 +12,7 @@ namespace TowerDefense.Input
         public InputAction Look { get; private set; }
         public InputAction Scroll { get; private set; }
         public InputAction Attack { get; private set; }
+        public InputAction Harvest { get; private set; }
         public event Action<string> PanelRequested;
         public bool BlockGameplay { get; set; }
 
@@ -25,6 +26,7 @@ namespace TowerDefense.Input
             Look = actions.AddAction("Look", InputActionType.PassThrough, "<Mouse>/delta");
             Scroll = actions.AddAction("Hotbar", InputActionType.PassThrough, "<Mouse>/scroll");
             Attack = actions.AddAction("Attack", InputActionType.Button, "<Mouse>/leftButton");
+            Harvest = actions.AddAction("Harvest", InputActionType.Button, "<Keyboard>/e");
             BindPanel("Shop", "<Keyboard>/b");
             BindPanel("Upgrades", "<Keyboard>/u");
             BindPanel("Troops", "<Keyboard>/t");

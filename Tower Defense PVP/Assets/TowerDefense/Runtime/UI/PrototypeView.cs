@@ -23,6 +23,9 @@ namespace TowerDefense.UI
         private string panelName;
         private CombatPhase observedPhase;
         private Button managementAction;
+        private int selectedPlot = -1, selectedTower;
+        private readonly List<Button> economyButtons = new List<Button>();
+        private Text plotChoice, towerChoice, interactionLabel;
         private Text guestStatus;
         private Text roster;
         private Text readyLabel;
@@ -291,6 +294,8 @@ namespace TowerDefense.UI
             heroLabel = Label(header, "Entering arena...", new Vector2(-255, 0), new Vector2(770, 54), 22, Color.white, TextAnchor.MiddleLeft);
             var combatHud = Box("Combat status", canvasRoot, new Vector2(0, -117), new Vector2(1360, 70), new Vector2(0.5f, 1), Panel);
             combatLabel = Label(combatHud, "Ready up to start combat.", Vector2.zero, new Vector2(1320, 65), 19, Color.white);
+            var interaction = Box("Interaction feedback", canvasRoot, new Vector2(0, -170), new Vector2(1360, 32), new Vector2(0.5f, 1), Panel);
+            interactionLabel = Label(interaction, string.Empty, Vector2.zero, new Vector2(1320, 30), 17, Gold);
             ActionButton(header, "MENU", new Vector2(550, 0), new Vector2(145, 42), session.Leave);
             ActionButton(header, "PAUSE", new Vector2(380, 0), new Vector2(145, 42), () => OpenPanel("Pause"));
             var footer = Rect("Hotbar", canvasRoot, new Vector2(0, 68), new Vector2(630, 64), new Vector2(0.5f, 0));
@@ -302,8 +307,8 @@ namespace TowerDefense.UI
                 slotLabels[i] = button.GetComponentInChildren<Text>(); slotLabels[i].fontSize = 17;
             }
             var help = Rect("Controls", canvasRoot, new Vector2(0, 22), new Vector2(1360, 30), new Vector2(0.5f, 0));
-            Label(help, "WASD move  |  Left mouse attack  |  Right-drag orbit  |  Wheel hotbar  |  B shop  U upgrades  T troops  I equipment  |  Esc pause",
-                Vector2.zero, new Vector2(1360, 30), 16, Color.white);
+            Label(help, "WASD move | Left mouse attack | Right-drag orbit | Wheel hotbar | E mine (pickaxe) | B land/build/shop | U upgrades | T troops | I equipment | Esc pause",
+                Vector2.zero, new Vector2(1360, 30), 14, Color.white);
             lobby = Box("Ready lobby", canvasRoot, Vector2.zero, new Vector2(590, 375), Vector2.one * 0.5f, Panel);
             Label(lobby, session.OnlineProvider is SteamOnlineProvider && session.SteamService.PrivatePlaytest ? "PRIVATE STEAM TEST / 480" : "YOUR ARENA",
                 new Vector2(0, 145), new Vector2(540, 45), 30, Gold);
@@ -336,6 +341,7 @@ namespace TowerDefense.UI
         {
             if (modal != null) ClosePanel();
             panelName = name;
+            if (name == "Shop") { OpenEconomyShop(); session.Controls.BlockGameplay = true; return; }
             modal = Box("Management panel", canvasRoot, Vector2.zero, new Vector2(620, 400), Vector2.one * 0.5f, Panel);
             Label(modal, name.ToUpperInvariant(), new Vector2(0, 145), new Vector2(550, 55), 32, Gold);
             string text;
@@ -373,6 +379,7 @@ namespace TowerDefense.UI
             if (modal != null) Destroy(modal.gameObject);
             modal = null;
             managementText = null; managementAction = null; panelName = null;
+            economyButtons.Clear(); plotChoice = towerChoice = null;
             session.Controls.BlockGameplay = false;
         }
 
@@ -407,6 +414,7 @@ namespace TowerDefense.UI
             copyCode.gameObject.SetActive(session.Online && session.Manager.IsHost && !string.IsNullOrEmpty(session.JoinCode));
             inviteFriend.gameObject.SetActive(session.Online && session.Manager.IsHost && session.OnlineProvider.SupportsFriendInvites);
             session.Controls.BlockGameplay = modal != null || !running || (hero != null && hero.Phase.Value == CombatPhase.Finished);
+            interactionLabel.transform.parent.gameObject.SetActive(modal == null);
             var players = new StringBuilder();
             foreach (var player in session.Heroes)
                 if (player.Definition != null)
@@ -422,12 +430,15 @@ namespace TowerDefense.UI
             }
             heroLabel.text = $"{hero.Definition.DisplayName.ToUpperInvariant()}  /  {hero.Definition.TechnologyGroup.DisplayName}  /  SIDE {hero.Side.Value + 1}";
             var info = new StringBuilder();
-            info.Append($"HP {hero.Health.Value:0}/{hero.Definition.MaxHealth:0}  |  Gold {hero.Economy.Value.Gold}  |  XP {hero.Economy.Value.XP}  |  Raider level {hero.Economy.Value.TroopLevel}\n");
+            info.Append($"HP {hero.Health.Value:0}/{hero.MaximumHealth.Value:0} | Gold {hero.Economy.Value.Gold} | Stone {hero.Economy.Value.Stone}/{session.Catalog.EconomyRules.StoneCapacity} | XP {hero.Economy.Value.XP} | Raider {hero.Economy.Value.TroopLevel} | Hero {hero.Economy.Value.HeroLevel}\n");
             foreach (var pool in hero.Energy) info.Append($"{pool.Id} {pool.Current:0}/{pool.Capacity:0}  |  ");
             info.Append($"Castle {hero.CastleHealth.Value:0}");
             foreach (var opponent in session.Heroes) if (opponent != hero) info.Append($"  /  Enemy castle {opponent.CastleHealth.Value:0}");
             if (hero.Life.Value == HeroLife.Ghost) info.Append($"  |  GHOST: {System.Math.Max(0, hero.RespawnAt.Value - hero.CombatNow):0.0}s — no attack/collection/vision");
             combatLabel.text = info.ToString();
+            interactionLabel.text = hero.Economy.Value.HarvestEnds > 0
+                ? $"MINING: {System.Math.Max(0, hero.Economy.Value.HarvestEnds - hero.CombatNow):0.0}s — stay near the rock; tool selected"
+                : "E: mine a nearby own-side rock with pickaxe selected | " + hero.CombatFeedback;
             RefreshManagement();
             for (int i = 0; i < slotLabels.Length; i++)
             {
@@ -439,6 +450,7 @@ namespace TowerDefense.UI
 
         private void RefreshManagement()
         {
+            if (panelName == "Shop") { RefreshEconomyShop(); return; }
             if (managementText == null || (panelName != "Troops" && panelName != "Upgrades")) return;
             var hero = session.LocalHero; var rules = session.Catalog.CombatRules;
             if (hero == null || rules == null) return;
@@ -449,6 +461,66 @@ namespace TowerDefense.UI
             managementAction.interactable = hero.Phase.Value == CombatPhase.Playing && (sending
                 ? hero.Life.Value == HeroLife.Alive || rules.AllowGhostSending
                 : hero.Economy.Value.XP >= rules.UpgradeXP && hero.Economy.Value.TroopLevel < rules.MaximumUpgrade);
+        }
+
+        private void OpenEconomyShop()
+        {
+            modal = Box("Economy shop", canvasRoot, Vector2.zero, new Vector2(800, 560), Vector2.one * 0.5f, Panel);
+            Label(modal, "LAND & MATCH SHOP", new Vector2(0, 230), new Vector2(740, 42), 30, Gold);
+            managementText = Label(modal, string.Empty, new Vector2(0, 120), new Vector2(740, 150), 18, Color.white, TextAnchor.MiddleLeft);
+            selectedPlot = -1; selectedTower = 0;
+            ActionButton(modal, "< PLOT", new Vector2(-280, 10), new Vector2(165, 40), () => CyclePlot(-1));
+            plotChoice = Label(modal, string.Empty, new Vector2(0, 10), new Vector2(350, 40), 19, Gold);
+            ActionButton(modal, "PLOT >", new Vector2(280, 10), new Vector2(165, 40), () => CyclePlot(1));
+            towerChoice = Label(modal, string.Empty, new Vector2(-110, -40), new Vector2(480, 40), 19, Color.white);
+            ActionButton(modal, "NEXT TOWER", new Vector2(260, -40), new Vector2(210, 40), () =>
+            { var hero = session.LocalHero; if (hero?.Definition != null) selectedTower = (selectedTower + 1) % hero.Definition.TechnologyGroup.Towers.Length; });
+            ShopButton("BUY LAND", -180, -95, EconomyAction.BuyPlot);
+            ShopButton("BUILD TOWER", 180, -95, EconomyAction.BuildTower);
+            ShopButton("SELL LAND", -180, -145, EconomyAction.SellPlot);
+            ShopButton("SELL TOWER", 180, -145, EconomyAction.SellTower);
+            ShopButton("GROW HERO (MAX HP)", 0, -195, EconomyAction.LevelHero);
+            ActionButton(modal, "CLOSE", new Vector2(0, -245), new Vector2(280, 40), ClosePanel, true);
+            RefreshEconomyShop();
+        }
+
+        private void ShopButton(string label, float x, float y, EconomyAction action) => economyButtons.Add(
+            ActionButton(modal, label, new Vector2(x, y), new Vector2(340, 40), () => session.LocalHero?.RequestEconomy(action, selectedPlot, selectedTower), true));
+
+        private void CyclePlot(int direction)
+        {
+            var hero = session.LocalHero;
+            if (hero == null || hero.Plots.Count == 0) return;
+            int index = 0;
+            for (int i = 0; i < hero.Plots.Count; i++) if (hero.Plots[i].Id == selectedPlot) index = i;
+            selectedPlot = hero.Plots[(index + direction + hero.Plots.Count) % hero.Plots.Count].Id;
+            RefreshEconomyShop();
+        }
+
+        private void RefreshEconomyShop()
+        {
+            var hero = session.LocalHero; var rules = session.Catalog.EconomyRules;
+            if (managementText == null || hero?.Definition == null || rules == null || economyButtons.Count != 5) return;
+            if (selectedPlot < 0 && hero.Plots.Count > 0) selectedPlot = hero.Plots[0].Id;
+            PlotSnapshot plot = default; bool found = false;
+            foreach (var candidate in hero.Plots) if (candidate.Id == selectedPlot) { plot = candidate; found = true; break; }
+            var group = hero.Definition.TechnologyGroup;
+            selectedTower = Mathf.Clamp(selectedTower, 0, group.Towers.Length - 1);
+            var position = found ? session.Catalog.TestMap.Plots[plot.Id] : Vector3.zero;
+            plotChoice.text = found ? $"Plot {plot.Id + 1} ({position.x:0}, {position.z:0})" : "Ready up for land";
+            towerChoice.text = "Group tower: " + group.Towers[selectedTower].DisplayName;
+            string state = !found || !plot.Owned ? "Available land" : plot.TowerIndex < 0 ? "Owned, empty land" : "Built: " + group.Towers[plot.TowerIndex].DisplayName;
+            managementText.text = $"Gold {hero.Economy.Value.Gold} | Stone {hero.Economy.Value.Stone}/{rules.StoneCapacity} | {state}\n" +
+                $"Land: {rules.PlotGold} gold / sell: {rules.PlotRefundGold} gold. Tower: {rules.TowerStone} stone / sell: {rules.TowerRefundStone} stone.\n" +
+                $"Hero: {rules.HeroLevelGold} gold for +{rules.HeroHealthBonus:0} maximum HP once; no instant heal.\n" +
+                $"Select pickaxe, approach a labeled rock, press E: {rules.HarvestYield} stone in {rules.HarvestSeconds:0.0}s.\n" +
+                "Ghosts can buy/build/sell/grow, never mine. All growth resets each match.\n" + hero.CombatFeedback;
+            bool playing = hero.Phase.Value == CombatPhase.Playing;
+            economyButtons[0].interactable = playing && found && !plot.Owned && hero.Economy.Value.Gold >= rules.PlotGold;
+            economyButtons[1].interactable = playing && found && plot.Owned && plot.TowerIndex < 0 && hero.Economy.Value.Stone >= rules.TowerStone;
+            economyButtons[2].interactable = playing && found && plot.Owned && plot.TowerIndex < 0;
+            economyButtons[3].interactable = playing && found && plot.TowerIndex >= 0 && hero.Economy.Value.Stone <= rules.StoneCapacity - rules.TowerRefundStone;
+            economyButtons[4].interactable = playing && hero.Economy.Value.HeroLevel == 0 && hero.Economy.Value.Gold >= rules.HeroLevelGold;
         }
 
         private void OnDestroy()

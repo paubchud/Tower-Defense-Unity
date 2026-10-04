@@ -100,6 +100,7 @@ namespace TowerDefense.Diagnostics
             hero.SmokeInput = null;
             if (Array.IndexOf(args, "-td-combat") >= 0) yield return CheckCombat(hero, captureDirectory, host);
             yield return CheckControls(hero, captureDirectory, host);
+            if (Array.IndexOf(args, "-td-economy") >= 0) yield return CheckEconomy(hero, captureDirectory, host);
             if (Array.IndexOf(args, "-td-combat") >= 0) yield return CheckCombatLife(hero, captureDirectory, host);
             if (Array.IndexOf(args, "-td-combat") >= 0) yield return CheckCombatResult(hero, captureDirectory, host);
             // Give both peers time to finish local input checks before resetting shared state.
@@ -108,7 +109,8 @@ namespace TowerDefense.Diagnostics
             deadline = Time.realtimeSinceStartupAsDouble + 15;
             while (hero.Running.Value && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
             if (hero.Running.Value || hero.Ready.Value || hero.SelectedSlot.Value != 0 || hero.Round.Value != 0 ||
-                hero.Incoming.Count != 0 || hero.Energy.Count != 0 || hero.Economy.Value.XP != 0 || hero.Economy.Value.Gold != 0)
+                hero.Incoming.Count != 0 || hero.Energy.Count != 0 || hero.Economy.Value.XP != 0 || hero.Economy.Value.Gold != 0 ||
+                hero.Plots.Count != 0 || hero.Nodes.Count != 0 || hero.Economy.Value.Stone != 0 || hero.Economy.Value.HeroLevel != 0)
             { Fail("Reset did not clear match state."); yield break; }
             yield return new WaitForSecondsRealtime(0.3f);
             if (Vector3.Distance(hero.transform.position, session.Catalog.TestMap.Lanes[hero.Side.Value].HeroSpawn) > 0.5f)
@@ -404,6 +406,60 @@ namespace TowerDefense.Diagnostics
             Debug.Log("TD_CONTROLS_PASS orbit camera-relative-WASD wheel panels input-blocking");
         }
 
+        private static IEnumerator CheckEconomy(NetworkHero hero, string captures, bool host)
+        {
+            var session = PrototypeSession.Instance; var rules = session.Catalog.EconomyRules;
+            // Explicit authority-only diagnostic teleport. Normal clients cannot choose their position.
+            if (host) foreach (var player in session.Heroes)
+            {
+                int node = Array.FindIndex(session.Catalog.TestMap.NodeSides, s => s == player.Side.Value);
+                player.SmokeTeleport(session.Catalog.TestMap.ResourceNodes[node] + Vector3.forward * 2);
+            }
+            int ownNode = Array.FindIndex(session.Catalog.TestMap.NodeSides, s => s == hero.Side.Value);
+            double deadline = Time.realtimeSinceStartupAsDouble + 5;
+            while (Vector3.Distance(hero.transform.position, session.Catalog.TestMap.ResourceNodes[ownNode]) > 3 && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
+            if (hero.Plots.Count != 2 || hero.Nodes.Count != 2 || hero.Economy.Value.Stone != 0 ||
+                Vector3.Distance(hero.transform.position, session.Catalog.TestMap.ResourceNodes[ownNode]) > 3)
+            { Fail("Economy sites/fixture did not synchronize."); yield break; }
+            if (!host) foreach (var other in session.Heroes)
+                if (other != hero && (other.Nodes.Count != 0 || other.Economy.Value.Gold != 0 || other.Economy.Value.Stone != 0))
+                { Fail("Opponent reserves/materials leaked."); yield break; }
+            hero.RequestSlot(1); yield return new WaitForSecondsRealtime(0.3f);
+            var keyboard = InputSystem.AddDevice<Keyboard>("Economy smoke keyboard");
+            for (int i = 0; i < 4; i++)
+            {
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.E)); yield return new WaitForSecondsRealtime(0.1f);
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return new WaitForSecondsRealtime(rules.HarvestSeconds + 0.4f);
+                if (hero.Economy.Value.Stone != (i + 1) * rules.HarvestYield) { Fail("Timed mining/input/material replication failed."); yield break; }
+            }
+            InputSystem.RemoveDevice(keyboard);
+            var ui = UnityEngine.Object.FindFirstObjectByType<TowerDefense.UI.PrototypeView>(); ui.OpenPanel("Shop");
+            yield return new WaitForSecondsRealtime(0.2f); Click("BUY LAND"); yield return new WaitForSecondsRealtime(0.3f);
+            Click("BUILD TOWER"); yield return new WaitForSecondsRealtime(0.3f);
+            if (!hero.Plots[0].Owned || hero.Plots[0].TowerIndex != 0 || hero.Economy.Value.Stone != 0)
+            { Fail("Shop purchase/construction did not synchronize."); yield break; }
+            // Duplicate occupied-slot construction must not consume/refund anything.
+            hero.RequestEconomy(EconomyAction.BuildTower, hero.Plots[0].Id);
+            yield return new WaitForSecondsRealtime(0.3f);
+            if (hero.Economy.Value.Stone != 0) { Fail("Rejected build changed materials."); yield break; }
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, host ? "economy-shop-host.png" : "economy-shop-client.png"));
+            ui.ClosePanel(); hero.RequestSend(); yield return new WaitForSecondsRealtime(7.5f);
+            if (hero.Plots[0].AttackAt < 0) { Fail("Constructed tower never fired."); yield break; }
+            if (host) foreach (var player in session.Heroes)
+                player.SmokeTeleport(session.Catalog.TestMap.Plots[player.Plots[0].Id] + Vector3.forward * 4);
+            yield return new WaitForSecondsRealtime(0.5f);
+            if (!string.IsNullOrEmpty(captures)) Capture(System.IO.Path.Combine(captures, host ? "economy-world-host.png" : "economy-world-client.png"));
+            ui.OpenPanel("Shop"); yield return new WaitForSecondsRealtime(0.2f);
+            Click("SELL TOWER"); yield return new WaitForSecondsRealtime(0.3f);
+            Click("SELL LAND"); yield return new WaitForSecondsRealtime(0.3f);
+            Click("GROW HERO (MAX HP)"); yield return new WaitForSecondsRealtime(0.3f);
+            if (hero.Plots[0].Owned || hero.Plots[0].TowerIndex != -1 || hero.Economy.Value.Stone != rules.TowerRefundStone ||
+                hero.Economy.Value.HeroLevel != 1 || hero.MaximumHealth.Value != hero.Definition.MaxHealth + rules.HeroHealthBonus)
+            { Fail("Sales/refunds/hero growth did not synchronize."); yield break; }
+            ui.ClosePanel();
+            Debug.Log("TD_ECONOMY_PASS timed-input harvest private-reserves buy build fire reject sell grow development-teleport-fixture");
+        }
+
         private static IEnumerator CheckCombatLife(NetworkHero hero, string captures, bool host)
         {
             var session = PrototypeSession.Instance;
@@ -427,6 +483,19 @@ namespace TowerDefense.Diagnostics
             while (hero.Life.Value != HeroLife.Ghost && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
             if (hero.Life.Value != HeroLife.Ghost || hero.GrantsVision) { Fail("Troop death/ghost eligibility did not synchronize."); yield break; }
             int xp = hero.Economy.Value.XP; float energy = hero.Energy[0].Current;
+            if (hero.Economy.Value.HeroLevel == 1)
+            {
+                int stone = hero.Economy.Value.Stone;
+                hero.RequestEconomy(EconomyAction.Harvest, hero.Nodes[0].Id);
+                hero.RequestEconomy(EconomyAction.BuyPlot, hero.Plots[0].Id);
+                yield return new WaitForSecondsRealtime(0.3f);
+                if (hero.Economy.Value.Stone != stone || hero.Economy.Value.HarvestEnds != 0 || !hero.Plots[0].Owned)
+                { Fail("Ghost mining rejection/management failed."); yield break; }
+                hero.RequestEconomy(EconomyAction.SellPlot, hero.Plots[0].Id);
+                yield return new WaitForSecondsRealtime(0.3f);
+                if (hero.Plots[0].Owned) { Fail("Ghost sale failed."); yield break; }
+                Debug.Log("TD_GHOST_ECONOMY_PASS no-harvest buy sell");
+            }
             hero.RequestAttack(Vector2.up);
             var start = hero.transform.position; hero.SmokeInput = Vector2.up;
             yield return new WaitForSecondsRealtime(0.5f); hero.SmokeInput = Vector2.zero;
@@ -437,7 +506,7 @@ namespace TowerDefense.Diagnostics
             while (hero.Life.Value == HeroLife.Ghost && Time.realtimeSinceStartupAsDouble < deadline) yield return null;
             hero.SmokeInput = null;
             yield return new WaitForSecondsRealtime(0.25f);
-            if (hero.Life.Value != HeroLife.Alive || hero.Health.Value != hero.Definition.MaxHealth || hero.Economy.Value.XP != xp ||
+            if (hero.Life.Value != HeroLife.Alive || hero.Health.Value != hero.MaximumHealth.Value || hero.Economy.Value.XP != xp ||
                 Vector3.Distance(hero.transform.position, session.Catalog.TestMap.Lanes[hero.Side.Value].HeroSpawn) > 0.5f)
             { Fail("Home respawn did not preserve economy/restore health."); yield break; }
             Debug.Log("TD_GHOST_PASS death movement attack-rejection no-vision timed-home-respawn economy-preserved development-fixture");

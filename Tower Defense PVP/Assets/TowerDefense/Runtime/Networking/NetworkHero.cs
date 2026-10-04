@@ -23,6 +23,7 @@ namespace TowerDefense.Networking
         public readonly NetworkVariable<CombatPhase> Phase = new NetworkVariable<CombatPhase>();
         public readonly NetworkVariable<int> Winner = new NetworkVariable<int>(-1);
         public readonly NetworkVariable<float> Health = new NetworkVariable<float>();
+        public readonly NetworkVariable<float> MaximumHealth = new NetworkVariable<float>();
         public readonly NetworkVariable<float> CastleHealth = new NetworkVariable<float>();
         public readonly NetworkVariable<HeroLife> Life = new NetworkVariable<HeroLife>();
         public readonly NetworkVariable<double> RespawnAt = new NetworkVariable<double>();
@@ -37,6 +38,9 @@ namespace TowerDefense.Networking
         public readonly NetworkVariable<CombatEconomy> Economy = new NetworkVariable<CombatEconomy>(default, NetworkVariableReadPermission.Owner);
         public NetworkList<TroopSnapshot> Incoming;
         public NetworkList<EnergySnapshot> Energy;
+        // Structure appearances are public until Milestone 4 observer filtering; reserves stay private.
+        public NetworkList<PlotSnapshot> Plots;
+        public NetworkList<NodeSnapshot> Nodes;
         public string CombatFeedback { get; private set; } = "Select your weapon and hold left mouse to attack.";
         public HeroClassDefinition Definition { get; private set; }
         public StarterInventory Inventory { get; private set; }
@@ -56,6 +60,8 @@ namespace TowerDefense.Networking
         {
             Incoming = new NetworkList<TroopSnapshot>();
             Energy = new NetworkList<EnergySnapshot>(null, NetworkVariableReadPermission.Owner);
+            Plots = new NetworkList<PlotSnapshot>();
+            Nodes = new NetworkList<NodeSnapshot>(null, NetworkVariableReadPermission.Owner);
         }
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         public Vector2? SmokeInput { get; set; }
@@ -95,8 +101,10 @@ namespace TowerDefense.Networking
             Phase.Value = CombatPhase.Lobby; Winner.Value = -1; Round.Value = 0;
             MatchPlayerId.Value = default; Life.Value = HeroLife.Alive; RespawnAt.Value = 0;
             Health.Value = Definition != null ? Definition.MaxHealth : 100;
+            MaximumHealth.Value = Health.Value;
             CastleHealth.Value = Catalog.CombatRules != null ? Catalog.CombatRules.CastleHealth : 300;
             Economy.Value = default; Incoming.Clear(); Energy.Clear(); HeroAttackAt.Value = TowerAttackAt.Value = -100;
+            Plots.Clear(); Nodes.Clear();
             serverInput = Vector2.zero;
             var position = Catalog.TestMap.Lanes[Side.Value].HeroSpawn;
             controller.enabled = false;
@@ -143,6 +151,16 @@ namespace TowerDefense.Networking
             bool pointerOnUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
             if (!controls.BlockGameplay && !pointerOnUI)
             {
+                if (controls.Harvest.WasPressedThisFrame() && Running.Value && Phase.Value == CombatPhase.Playing)
+                {
+                    int closest = -1; float distance = float.MaxValue;
+                    foreach (var node in Nodes)
+                    {
+                        float candidate = Vector3.Distance(transform.position, Catalog.TestMap.ResourceNodes[node.Id]);
+                        if (candidate < distance) { distance = candidate; closest = node.Id; }
+                    }
+                    RequestEconomy(EconomyAction.Harvest, closest);
+                }
                 float scroll = controls.Scroll.ReadValue<Vector2>().y;
                 if (Mathf.Abs(scroll) > 0.01f) RequestSlot(Inventory.Cycle(requestedSlot, scroll > 0 ? -1 : 1));
                 if (Running.Value && Phase.Value == CombatPhase.Playing && Life.Value == HeroLife.Alive && controls.Attack.IsPressed() && Time.unscaledTime >= nextAttackRequest)
@@ -195,6 +213,18 @@ namespace TowerDefense.Networking
         public void RequestSend() { if (IsOwner && IsSpawned) { ObserveRound(); SendTroopRpc(Round.Value, ++commandSequence); } }
         public void RequestUpgrade() { if (IsOwner && IsSpawned) { ObserveRound(); UpgradeTroopRpc(Round.Value, ++commandSequence); } }
         public void RequestAttack(Vector2 aim) { if (IsOwner && IsSpawned) { ObserveRound(); AttackRpc(Round.Value, ++commandSequence, aim); } }
+        public void RequestEconomy(EconomyAction action, int target = -1, int towerIndex = 0)
+        { if (IsOwner && IsSpawned) { ObserveRound(); EconomyRpc(Round.Value, ++commandSequence, action, target, towerIndex); } }
+
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+        private void EconomyRpc(uint round, uint sequence, EconomyAction action, int target, int towerIndex)
+        {
+            var match = PrototypeSession.Instance.Combat;
+            if (match?.Economy == null) return;
+            match.UpdateHero(Side.Value, transform.position, SelectedSlot.Value);
+            match.Economy.TryAction(MatchPlayerId.Value.ToString(), round, sequence, action, target, towerIndex, out string reason);
+            CombatFeedbackRpc(new FixedString128Bytes(reason));
+        }
 
         [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
         private void SendTroopRpc(uint round, uint sequence)
@@ -233,7 +263,7 @@ namespace TowerDefense.Networking
             if (!IsServer || !IsSpawned) return;
             var player = match.Players[Side.Value];
             if (Life.Value == HeroLife.Ghost && player.Life == HeroLife.Alive) TeleportHome();
-            Health.Value = player.Health; Life.Value = player.Life; RespawnAt.Value = player.RespawnAt;
+            Health.Value = player.Health; MaximumHealth.Value = player.MaximumHealth; Life.Value = player.Life; RespawnAt.Value = player.RespawnAt;
         }
 
         public void SyncCombat(CombatMatch match)
@@ -246,7 +276,32 @@ namespace TowerDefense.Networking
             ClockOffset.Value = System.Math.Round(NetworkManager.ServerTime.Time - match.Time, 3);
             if (match.Phase == CombatPhase.Finished) FinishedAt.Value = match.Time;
             CastleHealth.Value = match.Castles[Side.Value];
-            Economy.Value = new CombatEconomy { Gold = player.Gold, XP = player.XP, TroopLevel = player.TroopLevel };
+            if (Economy.Value.HarvestEnds > 0 && player.HarvestEnds == 0)
+                CombatFeedbackRpc(new FixedString128Bytes(player.Stone > Economy.Value.Stone
+                    ? "Mining complete. Stone added to your match inventory."
+                    : "Mining canceled (life, range, tool, capacity, or match state changed)."));
+            Economy.Value = new CombatEconomy { Gold = player.Gold, XP = player.XP, TroopLevel = player.TroopLevel,
+                Stone = player.Stone, HeroLevel = player.HeroLevel, HarvestNode = player.HarvestNode, HarvestEnds = player.HarvestEnds };
+            if (match.Economy != null)
+            {
+                foreach (var plot in match.Economy.Plots)
+                {
+                    if (plot.Side != Side.Value) continue;
+                    var state = new PlotSnapshot { Id = plot.Id, Owned = plot.Owned, TowerIndex = plot.TowerIndex,
+                        AttackAt = plot.LastAttack, AttackEnd = plot.AttackEnd };
+                    int found = -1;
+                    for (int i = 0; i < Plots.Count; i++) if (Plots[i].Id == plot.Id) { found = i; break; }
+                    if (found < 0) Plots.Add(state); else if (!Plots[found].Equals(state)) Plots[found] = state;
+                }
+                foreach (var node in match.Economy.Nodes)
+                {
+                    if (node.Side != Side.Value) continue;
+                    var state = new NodeSnapshot { Id = node.Id, Remaining = node.Remaining, RecoverAt = node.RecoverAt };
+                    int found = -1;
+                    for (int i = 0; i < Nodes.Count; i++) if (Nodes[i].Id == node.Id) { found = i; break; }
+                    if (found < 0) Nodes.Add(state); else if (!Nodes[found].Equals(state)) Nodes[found] = state;
+                }
+            }
             HeroAttackAt.Value = player.LastHeroAttack; HeroAttackEnd.Value = player.HeroAttackEnd;
             TowerAttackAt.Value = player.LastTowerAttack; TowerAttackEnd.Value = player.TowerAttackEnd;
             foreach (var pool in player.Energies.Values)

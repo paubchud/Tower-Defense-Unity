@@ -1,4 +1,4 @@
-param([switch]$Capture, [switch]$Combat, [switch]$Relay, [string]$ExecutablePath)
+param([switch]$Capture, [switch]$Combat, [switch]$Economy, [switch]$Relay, [string]$ExecutablePath)
 
 $ErrorActionPreference = 'Stop'
 if ($Relay) { throw 'This branch uses Steam, not Unity Relay. Use the v0.1 checkout for legacy Relay tests. Steam peer tests need two accounts/devices; see STEAM_SETUP.md.' }
@@ -22,6 +22,7 @@ function Start-SmokePlayer([string]$role, [string]$flags) {
     $log = Join-Path $runDirectory ($role + '.log')
     $arguments = '-screen-fullscreen 0 -screen-width 1440 -screen-height 900 {0} -logFile "{1}"' -f $flags, $log
     if ($Combat -and $role -ne 'third') { $arguments += ' -td-combat' }
+    if ($Economy -and $role -ne 'third') { $arguments += ' -td-economy' }
     if ($Capture -and $role -ne 'third') { $arguments += ' -td-captures "' + $runDirectory + '"' }
     $process = Start-Process -FilePath $prototypeExe -ArgumentList $arguments -WindowStyle Hidden -PassThru
     $null = $process.Handle
@@ -58,6 +59,8 @@ try {
         }
         if ($role -eq 'host') { $markers += 'TD_DISCONNECT_PASS' }
         if ($Combat -and $role -ne 'third') { $markers += @('TD_COMBAT_PASS', 'TD_GHOST_PASS', 'TD_RESULT_PASS') }
+        if ($Economy -and $role -ne 'third') { $markers += 'TD_ECONOMY_PASS' }
+        if ($Economy -and $Combat -and $role -ne 'third') { $markers += 'TD_GHOST_ECONOMY_PASS' }
         foreach ($marker in $markers) {
             if (-not $log.Contains($marker)) { throw "$role is missing $marker. See $runDirectory." }
         }

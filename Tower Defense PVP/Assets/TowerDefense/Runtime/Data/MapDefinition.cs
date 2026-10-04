@@ -22,6 +22,8 @@ namespace TowerDefense.Data
         public LaneDefinition[] Lanes;
         public Vector3[] Plots;
         public Vector3[] ResourceNodes;
+        public int[] PlotSides;
+        public int[] NodeSides;
 
         public Vector3 ClampHero(Vector3 position)
         {

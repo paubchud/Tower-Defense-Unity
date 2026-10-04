@@ -39,6 +39,8 @@ This is the living implementation sequence. See [GAME_DESIGN.md](GAME_DESIGN.md)
 
 ## Target and sequence
 
+2026-10-03 operational checkpoint: owner says EOS works and requests continued development. Treat connectivity as operational for private work without turning that into an independently verified Steam/full-platform pass. Completed Milestone 2 source was checkpointed/pushed on main at `9e6abcd`; start **0.3.1** on `codex/milestone-3-economy`. Economy defaults are provisional assets pending the owner's detailed design. Validate transactions, both-role replication, ghost permissions/reset and paired packages, then publish a fixed experimental release. Detailed combat/balance/platform/latency/load checks remain open alongside development.
+
 Build one small 1v1 map with two straight lanes. Prove two-client networking early, then add combat, economy, harvesting, and invasion in small playable milestones.
 
 Brief local experiments are useful, but do not build the entire game locally before introducing multiplayer. Each milestone must work with two players before the next dependent milestone begins.
@@ -124,6 +126,8 @@ The 1v1 combat prototype starts at 0.2.1. Team queues, compensation and reconnec
 Gate: two players send, defend, upgrade, use valid class equipment/energy, die/roam/respawn, and finish a match with identical authoritative results. Validate group tower access, rejected sends, duplicate commands, simultaneous kills/energy costs, ghost attack rejection, respawn deadlines, and match-end command rejection. The prototype must not leave a player without control during the death timer.
 
 ## Milestone 3 - Land, harvesting, and hero growth
+
+First 0.3.1 slice: two assigned plots/nodes per side, one stone material, group-indexed tower build menu, partial own-asset refunds, and one match-only maximum-HP purchase with no instant heal. Price/yield/capacity/range/time/recovery effects are editable in EconomyRules; see README. This is not persistent unlock power, a full inventory/crafting system, or completed measured acceptance. Timed collection resolves after damage and match-end checks; ghost management uses the same atomic costs/ownership checks as living management.
 
 1. Decide gold-funded hero leveling, initial resource/land values, tower recipe, node depletion/recovery rules, and one sellable own-side asset/refund policy.
 2. Add predefined purchasable plots and ownership checks. Use a small number of building slots initially if the design accepts them.
@@ -242,6 +246,8 @@ Definition of done: two players can select Warrior/Wizard with Primate/Mystic to
 - For queue/reconnect/team increments: test complete-roster readiness/loading, compatible pools, whole-party cancellation/admission, duplicate tickets, host/client loss, expiry/result races, premade/mixed classification and compensation exploits. Do not infer eight-player readiness from today's two-player tests.
 
 ## Next action
+
+Current 2026-10-03 instruction supersedes the older progression blocker below: owner accepts networking as operational and requested the next step. Main now holds completed Milestone 2 at `9e6abcd`; develop/validate/release 0.3.1 economy on its separate branch. Keep all old tags/assets fixed. Do not label the assumption about Steam as a new observed test or imply a complete milestone/balance/performance pass. Match-only provisional rules allow further design changes without persistent save migration.
 
 2026-10-03 superseding update: the completed Milestone 1/design work was merged and pushed to main at `a008f71`. Local Milestone 2 work starts at **0.2.1** on `codex/milestone-2-combat`, with editable combat defaults documented in README. Version policy is `0.<milestone>.<progress>`; starting a milestone does not imply its completion gate passed. Increment within a milestone; start Milestone 3 at 0.3.1. Main pushes occur at owner-authorized completed-milestone transitions. Keep published tags/downloads fixed. Verify combat, ghost/respawn, private replication, results/rematch and real peer play before moving on; EOS Mac/Windows remains unverified. No prediction/fog/migration/queues or paid service is silently included.
 

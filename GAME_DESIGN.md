@@ -189,6 +189,8 @@ Automatic timed waves are not assumed to be the primary source of enemies. A tes
 
 ## Land, harvesting, and towers
 
+0.3.1 implementation defaults (editable prototype choices, not final balance): two assigned plots/nodes per side; 50 starting gold, 25-gold land/12-gold sale; 20-stone group tower/10-stone sale. Stone capacity is 100; each node has 50, yields 5 after a two-second pickaxe action within three units, and refills 20 seconds after depletion. Death/tool/range changes cancel pending mining before completion awards. Ghosts may manage normal purchases/refunds, never collect. Gold-funded hero growth currently buys +25 maximum HP once for 30 gold without instant healing; the next respawn fills it. All growth/assets/reserves reset each match. Existing towers continue firing and granting eligible kill gold while the hero is dead. Main contains the completed Milestone 2 checkpoint at `9e6abcd`; this economy work is on its separate update branch. Owner's more detailed design document is still pending.
+
 - Maps are authored beforehand. The first test map has one straight lane per player, two castles, and nearby areas for land and resources.
 - Gold buys access to land where towers can be placed.
 - Materials are acquired through mining or harvesting and used for tower construction.

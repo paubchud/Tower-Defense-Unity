@@ -11,6 +11,7 @@ namespace TowerDefense.Presentation
         {
             if (transform.childCount == 0) Build();
             if (GetComponent<CombatWorld>() == null) gameObject.AddComponent<CombatWorld>().Catalog = Catalog;
+            if (GetComponent<EconomyWorld>() == null) gameObject.AddComponent<EconomyWorld>().Catalog = Catalog;
         }
 
         public void Build()

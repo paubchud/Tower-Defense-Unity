@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b5642d6f6404b46a3ab59a465ce04ee, type: 3}
+  m_Name: EconomyRules
+  m_EditorClassIdentifier: TowerDefense.Runtime::TowerDefense.Data.EconomyRulesDefinition
+  StartingGold: 50
+  PlotGold: 25
+  PlotRefundGold: 12
+  StoneCapacity: 100
+  NodeCapacity: 50
+  HarvestYield: 5
+  HarvestSeconds: 2
+  HarvestRange: 3
+  NodeRecoverySeconds: 20
+  TowerStone: 20
+  TowerRefundStone: 10
+  HeroLevelGold: 30
+  HeroHealthBonus: 25
+  LaneClearance: 3

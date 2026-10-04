@@ -23,6 +23,12 @@ namespace TowerDefense.Core
         public int Gold { get; internal set; }
         public int XP { get; internal set; }
         public int TroopLevel { get; internal set; }
+        public int Stone { get; internal set; }
+        public int HeroLevel { get; internal set; }
+        public float HealthBonus { get; internal set; }
+        public float MaximumHealth => Definition.MaxHealth + HealthBonus;
+        public int HarvestNode { get; internal set; } = -1;
+        public double HarvestEnds { get; internal set; }
         public uint LastSequence { get; internal set; }
         internal double NextSend, NextAttack, NextTower;
         public bool GrantsVision => Life == HeroLife.Alive;
@@ -65,10 +71,10 @@ namespace TowerDefense.Core
         public readonly string PlayerId;
         public readonly uint Sequence;
         public readonly string Action;
-        public readonly int XPDelta, GoldDelta;
+        public readonly int XPDelta, GoldDelta, StoneDelta;
         public readonly double Time;
-        public CombatTransaction(string player, uint sequence, string action, int xp, int gold, double time)
-        { PlayerId = player; Sequence = sequence; Action = action; XPDelta = xp; GoldDelta = gold; Time = time; }
+        public CombatTransaction(string player, uint sequence, string action, int xp, int gold, double time, int stone = 0)
+        { PlayerId = player; Sequence = sequence; Action = action; XPDelta = xp; GoldDelta = gold; StoneDelta = stone; Time = time; }
     }
 
     // No networking, GameObjects or client balances here. Only the authority mutates these rules.
@@ -80,6 +86,7 @@ namespace TowerDefense.Core
         public readonly MapDefinition Map;
         public readonly CombatPlayer[] Players;
         public readonly float[] Castles;
+        public readonly EconomyMatch Economy;
         private readonly List<CombatTroop> troops = new List<CombatTroop>(32);
         private readonly Queue<CombatTransaction> journal = new Queue<CombatTransaction>(128);
         public IReadOnlyList<CombatTroop> Troops => troops;
@@ -89,7 +96,7 @@ namespace TowerDefense.Core
         public double Time { get; private set; }
         private uint nextTroop;
 
-        public CombatMatch(CombatRulesDefinition rules, MapDefinition map, HeroClassDefinition[] classes, uint generation, double start)
+        public CombatMatch(CombatRulesDefinition rules, MapDefinition map, HeroClassDefinition[] classes, uint generation, double start, EconomyRulesDefinition economy = null)
         {
             if (rules == null || map == null || map.Lanes == null || map.Lanes.Length != 2 || classes == null || classes.Length != 2 ||
                 generation == 0 || !double.IsFinite(start)) throw new ArgumentException("Combat requires a validated duel roster/map/time.");
@@ -101,6 +108,7 @@ namespace TowerDefense.Core
             Rules = rules; Map = map; Generation = generation; Time = start;
             Players = new[] { new CombatPlayer(Id + "-0", 0, classes[0], map.Lanes[0]), new CombatPlayer(Id + "-1", 1, classes[1], map.Lanes[1]) };
             Castles = new[] { rules.CastleHealth, rules.CastleHealth };
+            if (economy != null) Economy = new EconomyMatch(this, economy);
         }
 
         private static void ValidateClass(HeroClassDefinition hero)
@@ -132,7 +140,7 @@ namespace TowerDefense.Core
             Players[side].SelectedSlot = selectedSlot;
         }
 
-        private bool Admit(string playerId, uint generation, uint sequence, out CombatPlayer player, out string reason)
+        internal bool Admit(string playerId, uint generation, uint sequence, out CombatPlayer player, out string reason)
         {
             player = Array.Find(Players, p => p.Id == playerId);
             reason = "The match is not active.";
@@ -219,7 +227,7 @@ namespace TowerDefense.Core
             {
                 if (player.Life == HeroLife.Ghost && Time >= player.RespawnAt)
                 {
-                    player.Life = HeroLife.Alive; player.Health = player.Definition.MaxHealth; player.RespawnAt = 0;
+                    player.Life = HeroLife.Alive; player.Health = player.MaximumHealth; player.RespawnAt = 0;
                     player.Position = Map.Lanes[player.Side].HeroSpawn; player.RestoreEnergy();
                 }
                 if (player.Life == HeroLife.Alive) foreach (var pool in player.Energies.Values) pool.Recover(seconds);
@@ -233,6 +241,7 @@ namespace TowerDefense.Core
                 player.NextTower = Time + tower.AttackInterval; player.LastTowerAttack = Time; player.TowerAttackEnd = Position(target);
                 DamageTroop(target, player, tower.Damage);
             }
+            Economy?.FireTowers();
             for (int i = troops.Count - 1; i >= 0; i--)
             {
                 var troop = troops[i];
@@ -259,9 +268,11 @@ namespace TowerDefense.Core
                 Winner = Castles[0] <= 0 && Castles[1] <= 0 ? -1 : Castles[0] <= 0 ? 1 : 0;
                 // Finish the tick before resolving simultaneous castle arrivals. No further commands/timers/rewards.
             }
+            // After damage/results: death on the harvest-completion tick must never grant stone.
+            Economy?.Step();
         }
 
-        private void DamageTroop(CombatTroop troop, CombatPlayer defender, float damage)
+        internal void DamageTroop(CombatTroop troop, CombatPlayer defender, float damage)
         {
             troop.Health = Mathf.Max(0, troop.Health - damage);
             if (troop.Health > 0 || !troops.Remove(troop)) return;
@@ -269,10 +280,10 @@ namespace TowerDefense.Core
             defender.Gold += reward; Record(defender, 0, "kill", 0, reward);
         }
 
-        private void Record(CombatPlayer player, uint sequence, string action, int xp, int gold)
+        internal void Record(CombatPlayer player, uint sequence, string action, int xp, int gold, int stone = 0)
         {
             if (journal.Count >= 128) journal.Dequeue();
-            journal.Enqueue(new CombatTransaction(player.Id, sequence, action, xp, gold, Time));
+            journal.Enqueue(new CombatTransaction(player.Id, sequence, action, xp, gold, Time, stone));
         }
 
         private static bool Finite(Vector3 value) => float.IsFinite(value.x) && float.IsFinite(value.y) && float.IsFinite(value.z);

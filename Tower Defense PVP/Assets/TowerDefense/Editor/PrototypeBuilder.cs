@@ -69,9 +69,11 @@ namespace TowerDefense.Editor
                 };
                 m.Plots = new[] { new Vector3(-16, 0, -3), new Vector3(-16, 0, 5), new Vector3(16, 0, -3), new Vector3(16, 0, 5) };
                 m.ResourceNodes = new[] { new Vector3(-19, 0, 12), new Vector3(-19, 0, -12), new Vector3(19, 0, 12), new Vector3(19, 0, -12) };
+                m.PlotSides = new[] { 0, 0, 1, 1 }; m.NodeSides = new[] { 0, 0, 1, 1 };
             });
             var combat = Asset<CombatRulesDefinition>("CombatRules", c => { });
-            var catalog = Asset<ContentCatalog>("PrototypeCatalog", c => { c.Classes = new[] { warrior, wizard }; c.TestMap = map; c.BaseMaterial = material; c.CombatRules = combat; });
+            var economy = Asset<EconomyRulesDefinition>("EconomyRules", c => { });
+            var catalog = Asset<ContentCatalog>("PrototypeCatalog", c => { c.Classes = new[] { warrior, wizard }; c.TestMap = map; c.BaseMaterial = material; c.CombatRules = combat; c.EconomyRules = economy; });
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Root + "/Prefabs/NetworkHero.prefab");
             if (prefab == null)
             {

@@ -326,7 +326,7 @@ namespace TowerDefense.Networking
                 if (!hero.IsSpawned || !hero.Ready.Value) return;
             var classes = new HeroClassDefinition[2];
             foreach (var hero in Heroes) classes[hero.Side.Value] = hero.Definition;
-            try { Combat = new CombatMatch(Catalog.CombatRules, Catalog.TestMap, classes, ++roundGeneration, Manager.ServerTime.Time); }
+            try { Combat = new CombatMatch(Catalog.CombatRules, Catalog.TestMap, classes, ++roundGeneration, Manager.ServerTime.Time, Catalog.EconomyRules); }
             catch (ArgumentException error) { Status = "Combat content is invalid: " + error.Message; Debug.LogError(Status); return; }
             lastCombatTick = Manager.ServerTime.Time; nextCombatReplication = 0;
             foreach (var hero in Heroes) hero.SyncCombat(Combat);

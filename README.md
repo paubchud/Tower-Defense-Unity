@@ -2,6 +2,8 @@
 
 A 3D, hero-controlled 1v1 tower-defense prototype. Experimental **[0.2.1](https://github.com/paubchud/Tower-Defense-Unity/releases/tag/v0.2.1)** adds the first combat slice on `codex/milestone-2-combat`; it is not the complete economy/invasion game.
 
+**Current source 0.3.1:** the next economy playtest is being verified on `codex/milestone-3-economy`; publication is pending. Milestone 2 was checkpointed/pushed to main at `9e6abcd` under the owner's milestone-transition policy. The owner reports EOS working and accepts networking as operational for continued development; this is not an independently measured Steam/full platform/latency pass. Previous release links below remain fixed.
+
 See [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md) for completed changes, test results, release checkpoints, and unfinished work. It is updated with each meaningful increment.
 
 **Release policy (2026-10-03):** verified playable updates are published as versioned experimental GitHub Releases for owner/friend testing; 0.2.1 is now published. Publish matching Windows/Mac ZIPs, keep old tags/downloads fixed, and report any failed verification/publication rather than claiming a local update is downloadable. The release workflow pushes its source checkpoint to this public repository; main merges remain tied to completed milestone transitions. Documentation-only edits and unfinished experiments are not new playable releases.
@@ -54,7 +56,8 @@ Provider-namespaced identity can key later versioned saves; Steam, Steam-test an
 | Hold left mouse | Aim toward the ground cursor and attack with the weapon selected |
 | Hold right mouse + drag | Orbit/tilt around the hero, always keeping the hero centered |
 | Mouse wheel / click a hotbar slot | Select weapon, tool, or empty slot |
-| B | Match shop placeholder |
+| E | Mine the nearest own-side stone node with the pickaxe selected; remain nearby for completion |
+| B | Buy/sell land, build/sell a group tower, or buy match-only hero growth |
 | U | Spend match XP to upgrade future troops |
 | T | Open troop panel and send a Raider |
 | I | Starter equipment and class information |
@@ -63,7 +66,7 @@ Provider-namespaced identity can key later versioned saves; Steam, Steam-test an
 
 The host's pause menu includes **Reset to Lobby**. Both players must ready again. Opening a management panel blocks local movement/orbit; scrolling over UI does not also change held items.
 
-## Implemented in this increment
+## Milestone 2 combat baseline (0.2.1)
 
 - Main Menu, Store explanation, data-driven Warrior/Wizard selection, host/join setup, two-player ready lobby.
 - Steam SDK lifecycle, friends-only lobbies, numeric codes, copying, invite support, NGO P2P transport and explicit playable private test mode, with retained LAN diagnostics. Duplicate/canceled requests, version/member checks and bounded pending callbacks protect the connection boundary. Actual two-user Steam P2P/invites remain unverified.
@@ -74,7 +77,13 @@ The host's pause menu includes **Reset to Lobby**. Both players must ready again
 - Independent local hero-follow/orbit cameras with scenery obstruction handling.
 - Host-owned combat rules, bounded troop sending, XP upgrades for future sends, gold on kills, group-selected starter towers, castle defeat/draw/results, seven-second ghost/respawn, and energy-using sword/staff attacks. Troop visuals reuse a bounded pool and evaluate straight-path positions from spawn time; changed health/spawn/removal data is replicated instead of per-frame troop transforms. Private match economy and energy are owner-readable only. A bounded host-only transaction journal is diagnostic groundwork, not durable recovery or periodic auditing.
 
-Store stock, purchased land/tower construction, harvesting/materials, gold spending/hero growth, loot/crafting, theft, progression and fog remain future milestones. Walking across the blockout is not a finalized invasion rule. Ghosts roam their own half and can upgrade troops, but cannot attack/collect/reveal; sending while ghost defaults off pending owner choice. Existing towers continue firing. Disconnect still resets the lobby rather than preserving a match for reconnect; host loss still ends it.
+In the fixed older 0.2.1, purchased land/tower construction, harvesting/materials and gold spending were not present; the 0.3.1 slice below adds them. Persistent store stock, loot/crafting, theft, progression and fog remain future work. Walking across the blockout is not a finalized invasion rule. Ghosts roam their own half and can upgrade troops, but cannot attack/collect/reveal; sending while ghost defaults off pending owner choice. Existing towers continue firing. Disconnect still resets the lobby rather than preserving a match for reconnect; host loss still ends it.
+
+### 0.3.1 economy slice (source implemented; release verification pending)
+
+Each side has two authored plots and two stone nodes. Open **B** to choose an own-side plot/tower and buy, build, sell or grow your hero; land/build management works from anywhere on your side, including as a ghost. Select the pickaxe with the wheel, approach a labeled own-side rock and press **E** for one timed harvest. Moving away, changing tools, dying or match end cancels mining. Neither the UI nor client-submitted amounts decide authority costs/rewards. The server checks shared round/identity/command sequences, ownership, group eligibility, occupancy and complete costs before changing state. Private reserves/stone/harvest progress are owner-readable only; structure appearances are still public until Milestone 4 fog filtering.
+
+Temporary editable **EconomyRules** defaults: 50 starting gold; land costs 25 gold and sells for 12; a group tower costs 20 stone and sells for 10 stone; stone capacity 100. Nodes hold 50 stone, provide 5 per two-second harvest within three units, and refill 20 seconds after depletion. One 30-gold purchase adds 25 maximum HP for this match only, without immediately healing; next respawn fills the upgraded maximum. Sell towers before land; make inventory room for refunds. Existing towers still earn kill gold during ghost life, but ghosts cannot mine. All land, towers, resources, growth and ongoing actions reset on a new match. These values are not final balance choices or persistent store upgrades. Full gear acquisition/crafting, trade between players and automated harvesting are not implemented.
 
 ## Content and code
 
@@ -147,4 +156,4 @@ Known rendering warning: the starter URP settings can report stripped, unused de
 
 ## Design and next milestone
 
-See [GAME_DESIGN.md](GAME_DESIGN.md), [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) and [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md). Next: verify 0.2.1 combat on real Steam/EOS peers in both roles and finish Mac/Windows EOS testing. LAN automation can use `Tools/ValidatePrototype.ps1 -Combat -Capture`. Tune provisional combat values and complete the Milestone 2 gate before starting 0.3.1. Prediction/latency-loss measurements, fog and host recovery remain explicitly separate work. Use a real App ID before production Steam publication.
+See [GAME_DESIGN.md](GAME_DESIGN.md), [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) and [GUEST_PLAY_PLAN.md](GUEST_PLAY_PLAN.md). The owner accepts connectivity as operational and requested the next gameplay step: 0.3.1 land/harvest/build/hero-growth work. LAN automation uses `Tools/ValidatePrototype.ps1 -Combat -Economy -Capture`. Detailed real-peer combat/economy, Mac/Windows EOS, measured latency/loss/load and balance checks remain open. Prediction, fog and host recovery remain explicitly separate work. Use a real App ID before production Steam publication.
